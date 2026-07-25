@@ -74,10 +74,13 @@ button,input,select,textarea{font-family:inherit}
 .field textarea{min-height:74px;max-height:230px;overflow-y:auto}
 .field label{position:absolute;left:14px;top:15px;font-size:15px;color:var(--on-surface-var);
   pointer-events:none;transition:.15s var(--ease)}
-.field:focus-within label,.field .filled+label{top:7px;font-size:11px}
+.field:focus-within label,
+.field input:not(:placeholder-shown)+label,
+.field textarea:not(:placeholder-shown)+label,
+.field .filled+label{top:6px;font-size:11px}
 .field:focus-within label{color:var(--primary)}
-.field.compact input{padding:20px 12px 6px}
-.field.compact label{left:12px;top:14px}
+.field.compact input{padding:21px 12px 6px}
+.field.compact label{left:12px;top:15px}
 .support{font-size:12px;color:var(--on-surface-var);margin:8px 0 0;overflow-wrap:anywhere}
 .support b{color:var(--on-surface);font-weight:500}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -317,7 +320,10 @@ button,input,select,textarea{font-family:inherit}
             <div class="field compact"><input type="text" id="sub" placeholder=" " spellcheck="false"><label for="sub">Subreddit</label></div>
             <div class="field compact"><input type="text" id="time" placeholder=" " spellcheck="false"><label for="time">Timestamp</label></div>
           </div>
-          <label class="swrow" id="verifiedRow"><span class="lbl">Verified badge</span><input type="checkbox" id="verified"><span class="track"></span></label>
+          <div id="badgeRow"><span class="rowlab">Verified badge</span>
+            <div class="segmented" id="badge"><button data-v="off">Off</button><button data-v="blue" aria-pressed="true">Blue</button><button data-v="gold">Gold</button></div>
+          </div>
+          <label class="swrow hide" id="followRow"><span class="lbl">Show “Follow”</span><input type="checkbox" id="follow" checked><span class="track"></span></label>
           <label class="drop" id="avatarDrop">
             <span class="thumb" id="avatarThumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span>
             <span class="lbl">Profile picture<small id="avatarName">Optional — a coloured initial is used otherwise</small></span>
@@ -586,7 +592,7 @@ const S={
   hlAnim:false,hlOffset:9,hlDur:12,
   mode:"type",view:"frame",
   /* social */
-  name:"Rockstar Games",handle:"RockstarGames",verified:true,sub:"GamingLeaksAndRumours",time:"5:20 PM · Jul 25, 2026",
+  name:"Rockstar Games",handle:"RockstarGames",badge:"blue",follow:true,sub:"GamingLeaksAndRumours",time:"2h",
   likes:"2.4K",retweets:"318",replies:"24",views:"98K",
   avatar:null,media:null
 };
@@ -724,17 +730,17 @@ function fmtCount(v){
 }
 
 /* ---------- shared rich-text block (highlight aware + slide-in) ---------- */
-function measureBlock(c,text,rs,maxW,fs,face,lh){
-  c.font=fs+"px "+face;
+function measureBlock(c,text,rs,maxW,fs,face,lh,weight){
+  c.font=(weight||"")+fs+"px "+face;
   const lines=text.trim()?wrap(c,text,maxW):[];
   const h=lines.length?lines.length*lh-(lh-fs*1.05):0;
   return {lines,h};
 }
 function paintBlock(c,o){
-  /* o:{text,rs,lines,x,y,fs,lh,face,ink,hlColor,hlStyle,hp} */
+  /* o:{text,rs,lines,x,y,fs,lh,face,ink,hlColor,hlStyle,hp,weight} */
   const {text,rs,lines,x,y,fs,lh,face,ink,hlColor,hlStyle}=o;
   const hp=o.hp==null?1:o.hp;
-  c.font=fs+"px "+face;c.textBaseline="alphabetic";
+  c.font=(o.weight||"")+fs+"px "+face;c.textBaseline="alphabetic";
   let cy=y;
   lines.forEach(([ls,le])=>{
     const base=cy+fs*0.82,segs=segments(text,ls,le,rs);
@@ -747,9 +753,11 @@ function paintBlock(c,o){
       if(!sg.hl)return;
       if(!text.slice(sg.s,sg.e).trim())return;
       const x0=x+pre(sg.s),x1=x+pre(sg.e),full=x1-x0;
+      if(hp<=0)return;                              /* nothing revealed yet */
       if(hlStyle==="marker"){
+        const rw=(full+fs*0.18)*hp;                  /* reveal grows from 0 */
         c.save();
-        c.beginPath();c.rect(x0-fs*0.12,base-fs,full*hp+fs*0.24,fs*1.4);c.clip();
+        c.beginPath();c.rect(x0-fs*0.09,base-fs,rw,fs*1.4);c.clip();
         c.fillStyle=hlColor;rr(c,x0-fs*0.09,base-fs*0.80,full+fs*0.18,fs*1.03,fs*0.13);c.fill();
         c.fillStyle="#12141A";c.fillText(text.slice(sg.s,sg.e),x0,base);
         c.restore();
@@ -821,32 +829,74 @@ function paintQuote(c,L,A){
 /* ---------- SOCIAL layout ---------- */
 function avatarInitial(){const n=(S.name||S.handle||"?").trim();return (n[0]||"?").toUpperCase();}
 function avatarColor(){const n=(S.name||S.handle||"x");let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;return AVCOL[h%AVCOL.length];}
+const SCFG={
+  "x-post":       {brand:"x",     bodyBelow:"avatar", full:false, headLines:1, reply:false},
+  "x-reply":      {brand:"x",     bodyBelow:"avatar", full:false, headLines:1, reply:true},
+  "reddit-post":  {brand:"reddit",bodyBelow:"avatar", full:true,  headLines:1, title:true},
+  "reddit-comment":{brand:"reddit",bodyBelow:"header",full:false, headLines:1},
+  "yt-comment":   {brand:"yt",    bodyBelow:"header", full:false, headLines:1},
+  "fb-post":      {brand:"fb",    bodyBelow:"avatar", full:true,  headLines:2},
+  "fb-comment":   {brand:"fb",    bodyBelow:"bubble", full:false, headLines:0},
+  "ig-comment":   {brand:"ig",    bodyBelow:"header", full:false, headLines:1, rightHeart:true}
+};
+function gc(id){return fmtCount(S[id]||"");}
 function layoutSocial(c,fs){
-  const P=d(),pal=brandPal();
+  const cfg=SCFG[S.design],brand=cfg.brand,pal=brandPal();
   const cardW=FW*(S.width/100);
-  const pad=Math.round(fs*0.95);
-  const face=SANS;
-  const bodyFs=fs, bodyLh=fs*1.36;
-  const nameFs=Math.round(fs*0.9), metaFs=Math.round(fs*0.74);
-  const av=Math.round(fs*2.1);
-  const maxW=cardW-pad*2;
-  /* header height */
-  const headH=av+Math.round(fs*0.5);
-  /* body */
-  const bodyMaxW=(P.brand==="fb"&&!P.post)? maxW-av-pad*0.6 : maxW; /* fb comment bubble indents */
-  const {lines,h:bodyH}=measureBlock(c,S.text,S.ranges,bodyMaxW,bodyFs,face,bodyLh);
-  /* media */
-  let media=null,mediaH=0;
-  if(S.media&&(P.post||P.brand==="reddit")){
-    const iw=maxW, ih=Math.min(iw*(S.media.height/S.media.width), fs*11);
-    media={w:iw,h:ih};mediaH=ih+Math.round(fs*0.7);
+  const pad=Math.round(fs*0.9);
+  const bodyFs=fs, bodyLh=Math.round(fs*1.4);
+  const av = (cfg.title)?Math.round(fs*1.7)
+           : (cfg.bodyBelow==="header"||brand==="ig")?Math.round(fs*1.95)
+           : (brand==="fb"&&cfg.full)?Math.round(fs*2.5)
+           : Math.round(fs*2.3);
+  const gap=Math.round(fs*0.5);
+  const contentX=pad+av+gap;
+  const oneLine=Math.round(fs*1.15);
+  const titleWeight=cfg.title?"700 ":"";
+
+  /* fb-comment bubble is its own geometry */
+  if(cfg.bodyBelow==="bubble"){
+    const bx=contentX, innerPad=Math.round(fs*0.55);
+    const bw=cardW-contentX-pad;
+    const nameH=Math.round(fs*1.25);
+    const {lines,h:bodyH}=measureBlock(c,S.text,S.ranges,bw-innerPad*2,bodyFs,SANS,bodyLh);
+    const bubbleH=nameH+bodyH+innerPad*1.3;
+    const actionsH=Math.round(fs*1.3);
+    const cardH=Math.round(pad+Math.max(av,bubbleH+actionsH)+pad*0.6);
+    return {kind:"social",bubble:true,fs,cardW,cardH,pad,av,contentX,bx,bw,innerPad,nameH,
+      lines,bodyH,bodyFs,bodyLh,bubbleH,actionsH,pal,brand,cfg};
   }
-  /* footer (metrics) */
-  const footH=Math.round(fs*1.9);
-  let cardH=pad*2+headH+Math.round(fs*0.5)+bodyH+mediaH+footH;
-  if(P.brand==="reddit"&&P.post) cardH+=Math.round(fs*0.6);
-  cardH=Math.round(cardH);
-  return {kind:"social",fs,face,cardW,cardH,pad,bodyFs,bodyLh,nameFs,metaFs,av,maxW,bodyMaxW,lines,bodyH,media,mediaH,headH,footH,pal,P};
+
+  const bodyX = cfg.full?pad:contentX;
+  const bodyW = cfg.full?(cardW-pad*2):(cardW-contentX-pad);
+  const replyH = cfg.reply?Math.round(fs*1.35):0;
+  const headH = cfg.bodyBelow==="avatar" ? av+Math.round(fs*0.45)
+              : oneLine+Math.round(fs*0.3);
+  const {lines,h:bodyH}=measureBlock(c,S.text,S.ranges,bodyW,bodyFs,SANS,bodyLh,titleWeight);
+
+  const bodyTop=pad+headH+replyH;
+  let cursor=bodyTop+bodyH;
+
+  let media=null,mediaTop=0;
+  const wantMedia=S.media&&(S.design==="x-post"||S.design==="reddit-post"||S.design==="fb-post");
+  if(wantMedia){
+    const mx=cfg.full?pad:bodyX;
+    const iw=cfg.full?(cardW-pad*2):bodyW;
+    let ih=iw*(S.media.height/S.media.width);ih=Math.min(ih,fs*13);
+    mediaTop=cursor+Math.round(fs*0.55);
+    media={w:iw,h:ih,x:mx};
+    cursor=mediaTop+ih;
+  }
+  if(cfg.bodyBelow==="header")cursor=Math.max(cursor,pad+av);
+
+  const footGap=Math.round(fs*0.5);
+  const footH = (brand==="fb")?Math.round(fs*2.7)
+              : (brand==="reddit"&&cfg.title)?Math.round(fs*1.85)
+              : Math.round(fs*1.5);
+  const footTop=cursor+footGap;
+  const cardH=Math.round(footTop+footH+pad*0.5);
+  return {kind:"social",fs,cardW,cardH,pad,av,gap,contentX,bodyX,bodyW,bodyFs,bodyLh,oneLine,
+    titleWeight,lines,bodyH,bodyTop,replyH,media,mediaTop,footTop,footH,pal,brand,cfg};
 }
 /* small canvas icon set (stroke) */
 function icon(c,name,x,y,s,col,fill){
@@ -868,6 +918,10 @@ function icon(c,name,x,y,s,col,fill){
   else if(name==="comment"){c.stroke(new Path2D("M"+(s*.15)+" "+(s*.25)+"h"+(s*.7)+"a"+(s*.08)+" "+(s*.08)+" 0 0 1 "+(s*.08)+" "+(s*.08)+"v"+(s*.3)+"a"+(s*.08)+" "+(s*.08)+" 0 0 1 "+(-s*.08)+" "+(s*.08)+"h"+(-s*.4)+"l"+(-s*.15)+" "+(s*.15)+"v"+(-s*.15)+"h"+(-s*.15)+"a"+(s*.08)+" "+(s*.08)+" 0 0 1 "+(-s*.08)+" "+(-s*.08)+"v"+(-s*.3)+"a"+(s*.08)+" "+(s*.08)+" 0 0 1 "+(s*.08)+" "+(-s*.08)+"z"));}
   else if(name==="share"){p.moveTo(s*.5,s*.7);p.lineTo(s*.5,s*.2);p.moveTo(s*.32,s*.38);p.lineTo(s*.5,s*.2);p.lineTo(s*.68,s*.38);c.stroke(p);
     c.stroke(new Path2D("M"+(s*.25)+" "+(s*.5)+"v"+(s*.32)+"h"+(s*.5)+"v"+(-s*.32)));}
+  else if(name==="bookmark"){c.stroke(new Path2D("M"+(s*.3)+" "+(s*.2)+"h"+(s*.4)+"v"+(s*.6)+"l"+(-s*.2)+" "+(-s*.15)+"l"+(-s*.2)+" "+(s*.15)+"z"));}
+  else if(name==="send"){p.moveTo(s*.85,s*.18);p.lineTo(s*.15,s*.45);p.lineTo(s*.45,s*.55);p.lineTo(s*.55,s*.85);p.closePath();c.stroke(p);}
+  else if(name==="globe"){c.beginPath();c.arc(s*.5,s*.5,s*.34,0,7);c.stroke();
+    c.stroke(new Path2D("M"+(s*.16)+" "+(s*.5)+"h"+(s*.68)+"M"+(s*.5)+" "+(s*.16)+"q"+(s*.28)+" "+(s*.34)+" 0 "+(s*.68)+"q"+(-s*.28)+" "+(-s*.34)+" 0 "+(-s*.68)));}
   else if(name==="dots"){for(let i=0;i<3;i++){c.beginPath();c.arc(s*(.3+i*.2),s*.5,s*.06,0,7);c.fill();}}
   c.restore();
 }
@@ -889,162 +943,196 @@ function drawAvatar(c,x,y,s){
     c.fillText(avatarInitial(),x+s/2,y+s/2+s*0.03);c.textAlign="left";c.textBaseline="alphabetic";}
   c.restore();
 }
+function iconRot(c,name,x,y,s,col,deg){c.save();c.translate(x+s/2,y+s/2);c.rotate(deg*Math.PI/180);icon(c,name,-s/2,-s/2,s,col);c.restore();}
 function paintSocial(c,L,A){
-  const {x,y,cardW,cardH,pad,fs,bodyFs,bodyLh,nameFs,metaFs,av,maxW,lines,media,pal,P}=L;
-  const brand=P.brand;
-  const radius= brand==="reddit"?Math.round(fs*0.5):brand==="ig"?Math.round(fs*0.2):Math.round(fs*0.55);
-  /* card + shadow */
-  c.save();c.shadowColor="rgba(0,0,0,.45)";c.shadowBlur=fs*0.8;c.shadowOffsetY=fs*0.3;
-  c.fillStyle=pal.bg;rr(c,x,y,cardW,cardH,radius);c.fill();c.restore();
-  /* subtle border for light cards */
-  if(themeKey()==="light"){c.strokeStyle=pal.rule;c.lineWidth=Math.max(1,fs*0.03);rr(c,x,y,cardW,cardH,radius);c.stroke();}
-
+  const X0=L.x,Y0=L.y,cardW=L.cardW,cardH=L.cardH,pad=L.pad,fs=L.fs,pal=L.pal,brand=L.brand,cfg=L.cfg;
   const hp=A?A.hp:1;
-  let cx=x+pad, cy=y+pad;
+  const radius=brand==="ig"?Math.round(fs*0.25):Math.round(fs*0.6);
+  c.save();c.shadowColor="rgba(0,0,0,.4)";c.shadowBlur=fs*0.8;c.shadowOffsetY=fs*0.28;
+  c.fillStyle=pal.bg;rr(c,X0,Y0,cardW,cardH,radius);c.fill();c.restore();
+  if(themeKey()==="light"){c.strokeStyle=pal.rule;c.lineWidth=Math.max(1,fs*0.025);rr(c,X0,Y0,cardW,cardH,radius);c.stroke();}
+  if(L.bubble){paintFbComment(c,L,A);return;}
 
-  if((brand==="fb"&&!P.post)){
-    /* Facebook comment: avatar + grey bubble */
-    drawAvatar(c,cx,cy,av);
-    const bx=cx+av+pad*0.5, bw=maxW-av-pad*0.5;
-    const bubbleTop=cy;
-    const nameH=nameFs*1.3;
-    const bubbleH=nameH+L.bodyH+pad*0.8;
-    c.fillStyle=themeKey()==="dark"?"#3A3B3C":"#F0F2F5";
-    rr(c,bx,bubbleTop,bw,bubbleH,fs*0.55);c.fill();
-    c.font="600 "+nameFs+"px "+SANS;c.fillStyle=pal.ink;
-    c.fillText(S.name||"Name",bx+pad*0.6,bubbleTop+nameFs*1.0);
-    paintBlock(c,{text:S.text,rs:S.ranges,lines,x:bx+pad*0.6,y:bubbleTop+nameH+pad*0.1,fs:bodyFs,lh:bodyLh,face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,hp});
-    let fy=bubbleTop+bubbleH+metaFs*1.4;
-    c.font="600 "+metaFs+"px "+SANS;c.fillStyle=pal.sub;
-    let tx=bx+pad*0.6;
-    ["Like","Reply","Share"].forEach(t=>{c.fillText(t,tx,fy);tx+=c.measureText(t).width+pad*0.7;});
-    c.font=metaFs+"px "+SANS;c.fillStyle=pal.sub;c.fillText(S.time||"1h",tx,fy);
-    return;
-  }
+  const av=L.av,contentX=L.contentX,bodyX=L.bodyX,bodyFs=L.bodyFs,bodyLh=L.bodyLh,lines=L.lines,bodyTop=L.bodyTop;
+  const avX=X0+pad,avY=Y0+pad;
+  const right=X0+cardW-pad;
 
-  /* header row: avatar + name block */
-  drawAvatar(c,cx,cy,av);
-  const tx=cx+av+pad*0.55;
-  const centreY=cy+av/2;
-  if(brand==="reddit"){
-    const availR=x+cardW-pad-tx;
-    if(P.post){
-      /* r/subreddit · time  then  u/user line under */
-      c.font="600 "+Math.round(metaFs*1.05)+"px "+SANS;c.fillStyle=pal.ink;
-      const sr=ellip(c,"r/"+(S.sub||"subreddit"),availR*0.62);
-      c.fillText(sr,tx,cy+metaFs*1.0);
-      const uw=c.measureText(sr).width;
-      c.font=metaFs+"px "+SANS;c.fillStyle=pal.sub;
-      c.fillText(ellip(c,"· "+(S.time||"5h"),availR-uw-pad*0.4),tx+uw+pad*0.4,cy+metaFs*1.0);
-      c.fillStyle=pal.sub;c.fillText(ellip(c,"u/"+(S.handle||"user"),availR),tx,cy+metaFs*2.3);
-    } else {
-      /* comment: u/user · time */
-      c.font="600 "+Math.round(metaFs*1.05)+"px "+SANS;c.fillStyle=pal.ink;
-      const un=ellip(c,"u/"+(S.handle||"user"),availR*0.62);
-      c.fillText(un,tx,centreY-metaFs*0.05);
-      const uw=c.measureText(un).width;
-      c.font=metaFs+"px "+SANS;c.fillStyle=pal.sub;
-      c.fillText(ellip(c,"· "+(S.time||"5h"),availR-uw-pad*0.4),tx+uw+pad*0.4,centreY-metaFs*0.05);
-      c.fillText(ellip(c,S.sub?("r/"+S.sub):"",availR),tx,centreY+metaFs*1.15);
-    }
-  } else {
-    let nx=tx;
-    c.font="700 "+nameFs+"px "+SANS;c.fillStyle=pal.ink;
-    const nm=S.name||"Name";
-    c.fillText(nm,nx,centreY-(brand==="ig"?nameFs*0.05:nameFs*0.15));
-    nx+=c.measureText(nm).width+fs*0.16;
-    if(S.verified&&brand!=="yt"){badge(c,nx,centreY-nameFs*0.62-(brand==="ig"?nameFs*0.05:nameFs*0.15),nameFs*0.92,pal.badge);nx+=nameFs*1.1;}
-    if(brand!=="ig"){
-      c.font=metaFs+"px "+SANS;c.fillStyle=pal.sub;
-      const at=(brand==="fb")?(S.time||"2h"):"@"+(S.handle||"handle");
-      c.fillText(at,tx,centreY+nameFs*0.75);
-      if(brand==="x"&&S.time){const hw=c.measureText(at).width;c.fillText(" · "+timeShort(),tx+hw,centreY+nameFs*0.75);}
-    } else {
-      /* instagram: username bold then inline text handled below */
-    }
-  }
-  /* trailing brand mark / dots */
-  c.fillStyle=pal.sub;
-  if(brand==="x"){icon(c,"dots",x+cardW-pad-fs*0.9,cy+fs*0.1,fs*0.9,pal.sub);}
-  cy+=av+ (brand==="reddit"?pad*0.4:pad*0.2);
-
-  /* reply context line */
-  if(brand==="x"&&!P.post){
-    c.font=metaFs+"px "+SANS;c.fillStyle=pal.sub;
-    c.fillText("Replying to ",cx,cy+metaFs);
-    const rw=c.measureText("Replying to ").width;
-    c.fillStyle=pal.accent;c.fillText("@"+(S.sub||"someone"),cx+rw,cy+metaFs);
-    cy+=metaFs*1.7;
-  }
-  if(brand==="reddit"&&P.post){
-    /* title in bold larger */
-    c.font="700 "+Math.round(bodyFs*1.05)+"px "+SANS;c.fillStyle=pal.ink;
-  }
-
-  /* body */
-  if(brand==="ig"){
-    /* username inline then text — approximate by prefixing bold name via block? keep simple: name already drawn, body indented under */
-    paintBlock(c,{text:S.text,rs:S.ranges,lines,x:cx,y:cy+bodyFs*0.1,fs:bodyFs,lh:bodyLh,face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,hp});
-  }else{
-    paintBlock(c,{text:S.text,rs:S.ranges,lines,x:cx,y:cy,fs:bodyFs,lh:bodyLh,face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,hp});
-  }
-  cy+=L.bodyH+pad*0.4;
-
-  /* media */
-  if(media){
-    c.save();rr(c,cx,cy,media.w,media.h,fs*0.3);c.clip();
-    const scale=Math.max(media.w/S.media.width,media.h/S.media.height);
-    const dw=S.media.width*scale,dh=S.media.height*scale;
-    c.drawImage(S.media,cx+(media.w-dw)/2,cy+(media.h-dh)/2,dw,dh);
-    c.restore();
-    if(themeKey()==="light"){c.strokeStyle=pal.rule;c.lineWidth=1;rr(c,cx,cy,media.w,media.h,fs*0.3);c.stroke();}
-    cy+=media.h+pad*0.6;
-  }
-
-  /* footer metrics */
-  c.fillStyle=pal.rule;c.fillRect(cx,cy,maxW,Math.max(1,fs*0.025));
-  cy+=fs*0.55;
-  const my=cy, mfs=Math.round(fs*0.72), gap=fs*0.4;
-  c.font="500 "+mfs+"px "+SANS;
-  const items=metricRow(brand,P);
-  let ix=cx;
-  const iconS=fs*0.95;
-  items.forEach(it=>{
-    const col=it.col||pal.sub;
-    icon(c,it.icon,ix,my-iconS*0.7,iconS,col,it.fill);
-    ix+=iconS+fs*0.18;
-    c.fillStyle=col;c.textBaseline="middle";
-    c.fillText(it.val,ix,my);c.textBaseline="alphabetic";
-    ix+=c.measureText(it.val).width+gap*1.4;
-  });
-}
-function timeShort(){ const t=S.time||""; return t.length>16?t:t; }
-function metricRow(brand,P){
-  const g=id=>fmtCount(S[id]||"");
   if(brand==="x"){
-    return [{icon:"reply",val:g("replies")},{icon:"rt",val:g("retweets")},
-      {icon:"heart",val:g("likes"),col:brandPal().like,fill:true},{icon:"views",val:g("views")}];
+    drawAvatar(c,avX,avY,av);
+    const hx=X0+contentX,yb=avY+fs*1.02,rlim=right-fs*1.4;
+    c.font="700 "+fs+"px "+SANS;c.fillStyle=pal.ink;
+    const nm=ellip(c,S.name||"Name",(rlim-hx)*0.55);
+    c.fillText(nm,hx,yb);let cxp=hx+c.measureText(nm).width+fs*0.14;
+    if(S.badge!=="off"){const bs=fs*0.92;badge(c,cxp,yb-bs*0.86,bs,S.badge==="gold"?"#F5B400":pal.badge);cxp+=bs+fs*0.14;}
+    c.font=(fs*0.94)+"px "+SANS;c.fillStyle=pal.sub;
+    let meta="@"+(S.handle||"handle");if(S.time)meta+=" · "+S.time;
+    c.fillText(ellip(c,meta,rlim-cxp),cxp,yb);
+    icon(c,"dots",right-fs*1.0,avY+fs*0.05,fs*1.0,pal.sub);
   }
-  if(brand==="reddit"){
-    return [{icon:"up",val:g("likes"),col:brandPal().accent},{icon:"comment",val:g("replies")}];
+  else if(brand==="fb"&&cfg.full){
+    drawAvatar(c,avX,avY,av);
+    const hx=X0+contentX;
+    c.font="700 "+(fs*0.98)+"px "+SANS;c.fillStyle=pal.ink;
+    const nm=ellip(c,S.name||"Name",(right-hx)*0.72);
+    c.fillText(nm,hx,avY+fs*1.02);
+    if(S.follow){const fw=c.measureText(nm).width;c.font="700 "+(fs*0.9)+"px "+SANS;c.fillStyle=pal.accent;c.fillText(" · Follow",hx+fw,avY+fs*1.02);}
+    c.font=(fs*0.8)+"px "+SANS;c.fillStyle=pal.sub;
+    const tstr=(S.time||"2h")+"  ";c.fillText(tstr,hx,avY+fs*2.15);
+    icon(c,"globe",hx+c.measureText(tstr).width,avY+fs*1.5,fs*0.82,pal.sub);
+    icon(c,"dots",right-fs*1.0,avY+fs*0.2,fs*1.0,pal.sub);
   }
-  if(brand==="yt"){
-    return [{icon:"thumb",val:g("likes")},{icon:"reply",val:g("replies")+" replies"}];
+  else if(brand==="reddit"&&cfg.title){
+    c.save();c.beginPath();c.arc(avX+av/2,avY+av/2,av/2,0,7);c.clip();
+    c.fillStyle="#FF4500";c.fillRect(avX,avY,av,av);
+    if(S.avatar)c.drawImage(S.avatar,avX,avY,av,av);c.restore();
+    const hx=X0+contentX,yb=avY+av*0.5+fs*0.3;
+    c.font="700 "+(fs*0.82)+"px "+SANS;c.fillStyle=pal.ink;
+    const sr=ellip(c,"r/"+(S.sub||"subreddit"),(right-hx)*0.68);
+    c.fillText(sr,hx,yb);const sw=c.measureText(sr).width;
+    c.font=(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(ellip(c," · "+(S.time||"5h"),right-fs*1.4-(hx+sw)),hx+sw,yb);
+    icon(c,"dots",right-fs*1.0,avY+av*0.5-fs*0.45,fs*1.0,pal.sub);
   }
-  if(brand==="fb"){
-    return [{icon:"thumb",val:g("likes"),col:brandPal().accent},{icon:"comment",val:g("replies")},{icon:"share",val:g("retweets")}];
+  else if(brand==="reddit"){
+    drawAvatar(c,avX,avY,av);
+    const hx=X0+contentX,yb=avY+fs*0.95;
+    c.font="700 "+(fs*0.86)+"px "+SANS;c.fillStyle=pal.ink;
+    const un=ellip(c,"u/"+(S.handle||"user"),(right-hx)*0.66);
+    c.fillText(un,hx,yb);const uw=c.measureText(un).width;
+    c.font=(fs*0.82)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(ellip(c," · "+(S.time||"5h"),right-pad-(hx+uw)),hx+uw,yb);
   }
-  if(brand==="ig"){
-    return [{icon:"heart",val:g("likes")+" likes",col:brandPal().like,fill:true},{icon:"reply",val:"Reply"}];
+  else if(brand==="yt"){
+    drawAvatar(c,avX,avY,av);
+    const hx=X0+contentX,yb=avY+fs*0.95;
+    c.font="600 "+(fs*0.84)+"px "+SANS;c.fillStyle=pal.ink;
+    const nm=ellip(c,S.name||"Name",(right-hx)*0.6);
+    c.fillText(nm,hx,yb);const nw=c.measureText(nm).width;
+    c.font=(fs*0.82)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(ellip(c," · "+(S.time||"5d"),right-pad-(hx+nw)),hx+nw,yb);
   }
-  return [];
-}
+  else if(brand==="ig"){
+    drawAvatar(c,avX,avY,av);
+    const hx=X0+contentX,yb=avY+fs*0.95;
+    c.font="600 "+(fs*0.86)+"px "+SANS;c.fillStyle=pal.ink;
+    const nm=ellip(c,S.handle||S.name||"username",(right-hx)*0.55);
+    c.fillText(nm,hx,yb);let nw=c.measureText(nm).width;
+    if(S.badge!=="off"){const bs=fs*0.68;badge(c,hx+nw+fs*0.1,yb-bs*0.9,bs,pal.badge);nw+=bs+fs*0.2;}
+    c.font=(fs*0.8)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(ellip(c,"  "+(S.time||"1w"),right-fs*1.5-(hx+nw)),hx+nw,yb);
+    const hs=fs*1.0,hcx=right-fs*0.95;
+    icon(c,"heart",hcx-hs/2,avY+fs*0.25,hs,pal.sub);
+    if(S.likes){c.font=(fs*0.68)+"px "+SANS;c.fillStyle=pal.sub;c.textAlign="center";
+      c.fillText(gc("likes"),hcx,avY+fs*0.25+hs+fs*0.62);c.textAlign="left";}
+  }
 
+  if(cfg.reply){
+    const ry=Y0+bodyTop-L.replyH+fs*0.95;
+    c.font=(fs*0.94)+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText("Replying to ",X0+bodyX,ry);const rw=c.measureText("Replying to ").width;
+    c.fillStyle=pal.accent;c.fillText("@"+(S.sub||"user"),X0+bodyX+rw,ry);
+  }
+
+  paintBlock(c,{text:S.text,rs:S.ranges,lines,x:X0+bodyX,y:Y0+bodyTop,fs:bodyFs,lh:bodyLh,
+    face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,hp,weight:L.titleWeight});
+
+  if(L.media){
+    const m=L.media,mx=X0+m.x,my=Y0+L.mediaTop,mr=(brand==="fb")?Math.round(fs*0.12):Math.round(fs*0.35);
+    c.save();rr(c,mx,my,m.w,m.h,mr);c.clip();
+    const sc=Math.max(m.w/S.media.width,m.h/S.media.height),dw=S.media.width*sc,dh=S.media.height*sc;
+    c.drawImage(S.media,mx+(m.w-dw)/2,my+(m.h-dh)/2,dw,dh);c.restore();
+    c.strokeStyle=pal.rule;c.lineWidth=Math.max(1,fs*0.02);rr(c,mx,my,m.w,m.h,mr);c.stroke();
+  }
+  paintFooter(c,L,X0,Y0);
+}
+function paintFooter(c,L,X0,Y0){
+  const fs=L.fs,pad=L.pad,cardW=L.cardW,brand=L.brand,cfg=L.cfg,pal=L.pal,footTop=L.footTop,bodyX=L.bodyX,contentX=L.contentX;
+  const fy=Y0+footTop+fs*0.85,iS=fs*1.0;
+  if(brand==="x"){
+    const items=[["reply",gc("replies")],["rt",gc("retweets")],["heart",gc("likes")],["views",gc("views")],["bookmark",""],["send",""]];
+    const left=X0+pad,right=X0+cardW-pad,step=(right-left-iS)/5;
+    items.forEach((it,i)=>{const ix=left+step*i;
+      icon(c,it[0],ix,fy-iS*0.7,iS,pal.sub,false);
+      if(it[1]){c.font=(fs*0.72)+"px "+SANS;c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText(it[1],ix+iS+fs*0.12,fy);c.textBaseline="alphabetic";}});
+  }
+  else if(brand==="reddit"&&cfg.title){
+    let px=X0+bodyX;const pillH=fs*1.55,py=Y0+footTop-fs*0.1;
+    const pillBg=themeKey()==="dark"?"#272729":"#EDEFF1";
+    c.font="600 "+(fs*0.74)+"px "+SANS;
+    const cnt=gc("likes")||"Vote",vw=iS*2+c.measureText(cnt).width+fs*1.3;
+    c.fillStyle=pillBg;rr(c,px,py,vw,pillH,pillH/2);c.fill();
+    icon(c,"up",px+fs*0.4,py+pillH/2-iS*0.5,iS,pal.accent);
+    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText(cnt,px+fs*0.4+iS+fs*0.25,py+pillH/2);c.textBaseline="alphabetic";
+    icon(c,"down",px+vw-iS-fs*0.4,py+pillH/2-iS*0.5,iS,pal.sub);
+    px+=vw+fs*0.5;
+    const cc=gc("replies"),cw=iS+c.measureText(cc).width+fs*1.1;
+    c.fillStyle=pillBg;rr(c,px,py,cw,pillH,pillH/2);c.fill();
+    icon(c,"comment",px+fs*0.4,py+pillH/2-iS*0.5,iS,pal.sub);
+    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText(cc,px+fs*0.4+iS+fs*0.25,py+pillH/2);c.textBaseline="alphabetic";
+    px+=cw+fs*0.5;
+    const sw=iS+c.measureText("Share").width+fs*1.1;
+    c.fillStyle=pillBg;rr(c,px,py,sw,pillH,pillH/2);c.fill();
+    icon(c,"share",px+fs*0.4,py+pillH/2-iS*0.5,iS,pal.sub);
+    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText("Share",px+fs*0.4+iS+fs*0.25,py+pillH/2);c.textBaseline="alphabetic";
+  }
+  else if(brand==="reddit"){
+    let ix=X0+contentX;
+    icon(c,"up",ix,fy-iS*0.7,iS,pal.sub);ix+=iS+fs*0.2;
+    c.font="600 "+(fs*0.74)+"px "+SANS;c.fillStyle=pal.ink;c.textBaseline="middle";
+    c.fillText(gc("likes"),ix,fy);ix+=c.measureText(gc("likes")).width+fs*0.2;c.textBaseline="alphabetic";
+    icon(c,"down",ix,fy-iS*0.7,iS,pal.sub);ix+=iS+fs*0.8;
+    icon(c,"comment",ix,fy-iS*0.7,iS,pal.sub);ix+=iS+fs*0.25;
+    c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText("Reply",ix,fy);c.textBaseline="alphabetic";
+  }
+  else if(brand==="yt"){
+    let ix=X0+contentX;
+    icon(c,"thumb",ix,fy-iS*0.7,iS,pal.sub);ix+=iS+fs*0.2;
+    c.font=(fs*0.74)+"px "+SANS;c.fillStyle=pal.sub;c.textBaseline="middle";
+    c.fillText(gc("likes"),ix,fy);ix+=c.measureText(gc("likes")).width+fs*0.7;c.textBaseline="alphabetic";
+    iconRot(c,"thumb",ix,fy-iS*0.7,iS,pal.sub,180);ix+=iS+fs*0.9;
+    c.font="600 "+(fs*0.74)+"px "+SANS;c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText("Reply",ix,fy);c.textBaseline="alphabetic";
+  }
+  else if(brand==="fb"){
+    const cyc=Y0+footTop;
+    c.font=(fs*0.76)+"px "+SANS;
+    icon(c,"thumb",X0+pad,cyc-fs*0.05,fs*0.82,pal.accent);
+    c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText(gc("likes"),X0+pad+fs*1.0,cyc+fs*0.3);
+    const rl=gc("replies")+" comments   "+gc("retweets")+" shares";
+    c.textAlign="right";c.fillText(rl,X0+cardW-pad,cyc+fs*0.3);c.textAlign="left";c.textBaseline="alphabetic";
+    c.fillStyle=pal.rule;c.fillRect(X0+pad,cyc+fs*0.85,cardW-pad*2,Math.max(1,fs*0.02));
+    const acts=[["thumb","Like"],["comment","Comment"],["share","Share"]],third=(cardW-pad*2)/3;
+    acts.forEach((a,i)=>{const cxc=X0+pad+third*i+third/2;
+      c.font="700 "+(fs*0.8)+"px "+SANS;c.fillStyle=pal.sub;
+      const lw=c.measureText(a[1]).width,tot=iS+fs*0.3+lw,sx=cxc-tot/2,ly=cyc+fs*1.55;
+      icon(c,a[0],sx,ly-iS*0.55,iS,pal.sub);
+      c.textBaseline="middle";c.fillText(a[1],sx+iS+fs*0.3,ly);c.textBaseline="alphabetic";});
+  }
+  else if(brand==="ig"){
+    c.font="600 "+(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText("Reply",X0+contentX,fy);
+  }
+}
+function paintFbComment(c,L,A){
+  const X0=L.x,Y0=L.y,fs=L.fs,pad=L.pad,av=L.av,bx=L.bx,bw=L.bw,innerPad=L.innerPad,nameH=L.nameH,
+    lines=L.lines,bodyFs=L.bodyFs,bodyLh=L.bodyLh,bubbleH=L.bubbleH,pal=L.pal;
+  const avX=X0+pad,avY=Y0+pad;
+  drawAvatar(c,avX,avY,av);
+  const BX=X0+bx,BY=Y0+pad;
+  c.fillStyle=themeKey()==="dark"?"#3A3B3C":"#F0F2F5";
+  rr(c,BX,BY,bw,bubbleH,fs*0.75);c.fill();
+  c.font="700 "+(fs*0.86)+"px "+SANS;c.fillStyle=pal.ink;
+  let nm=ellip(c,S.name||"Name",bw-innerPad*2-fs*1.2);
+  c.fillText(nm,BX+innerPad,BY+fs*0.98);
+  if(S.badge!=="off"){const bs=fs*0.66;badge(c,BX+innerPad+c.measureText(nm).width+fs*0.12,BY+fs*0.98-bs*0.9,bs,pal.badge);}
+  paintBlock(c,{text:S.text,rs:S.ranges,lines,x:BX+innerPad,y:BY+nameH,fs:bodyFs,lh:bodyLh,
+    face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,hp:A?A.hp:1});
+  const ay=BY+bubbleH+fs*1.0;
+  c.font="700 "+(fs*0.74)+"px "+SANS;c.fillStyle=pal.sub;
+  let tx=BX+innerPad;
+  ["Like","Reply","Share"].forEach(t=>{c.fillText(t,tx,ay);tx+=c.measureText(t).width+fs*0.9;});
+  c.font=(fs*0.74)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(S.time||"1h",tx,ay);
+}
 /* ---------- layout dispatch + fitting ---------- */
 let layoutCache=null,layoutSig="";
 function sigOf(){
   return [S.design,S.text,JSON.stringify(S.ranges),S.theme,S.face,S.size,S.width,S.ypos,S.marks,S.header,
-    S.outlet,S.url,S.hlStyle,S.crop,S.res,S.name,S.handle,S.verified,S.sub,S.time,S.likes,S.retweets,S.replies,S.views,
+    S.outlet,S.url,S.hlStyle,S.crop,S.res,S.name,S.handle,S.badge,S.follow,S.sub,S.time,S.likes,S.retweets,S.replies,S.views,
     S.avatar?S.avatar.src.length:0,S.media?(S.media.width+"x"+S.media.height):0].join("|");
 }
 function computeLayout(c,fs){ return d().social?layoutSocial(c,fs):layoutQuote(c,fs); }
@@ -1613,7 +1701,7 @@ function bindText(id,key,fmt){
   el.addEventListener("input",e=>{S[key]=e.target.value;markFilled(el);invalidateLayout();scheduleDraw();});
 }
 ["name","handle","sub","time"].forEach(id=>bindText(id,id));
-$("#verified").addEventListener("change",e=>{S.verified=e.target.checked;invalidateLayout();scheduleDraw();});
+$("#follow").addEventListener("change",e=>{S.follow=e.target.checked;invalidateLayout();scheduleDraw();});
 
 /* metrics grid built dynamically per design */
 function buildMetrics(){
@@ -1694,7 +1782,7 @@ function updateFabLabel(){
   $("#fmtNote").textContent=FMT[S.format][1];
   $("#stillFmtCard").classList.toggle("hide",S.format!=="still");
 }
-["theme","face","hlStyle","crop","res","bg","fps","fadeEase","scaleEase","format","mode","imgFmt"].forEach(g=>{
+["theme","face","hlStyle","crop","res","bg","fps","fadeEase","scaleEase","format","mode","imgFmt","badge"].forEach(g=>{
   $("#"+g).addEventListener("click",e=>{
     const b=e.target.closest("button");if(!b)return;
     [...e.currentTarget.querySelectorAll("button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
@@ -1708,7 +1796,7 @@ function updateFabLabel(){
       $("#tapBox").style.display=S.mode==="tap"?"":"none";
       wordSig=null;
     }
-    if(g==="theme"||g==="face")invalidateLayout();
+    if(g==="theme"||g==="face"||g==="badge")invalidateLayout();
     scheduleDraw();
   });
 });
@@ -1756,20 +1844,26 @@ function applyDesign(){
   $("#textLabel").textContent=social?"What does the post say?":"Paste the quote";
   $("#subtitle").textContent=social?(P.brand.toUpperCase()+" — 9:16 for Shorts"):"9:16 source cards for Shorts";
   if(social){
-    $("#socialHead").textContent=(P.brand==="reddit")?"Account":"Account";
-    /* subreddit field only for reddit; for X reply repurpose sub as "replying to" */
-    const showSub=(P.brand==="reddit")||(P.brand==="x"&&!P.post);
+    const brand=P.brand;
+    $("#socialHead").textContent="Account";
+    /* subreddit field for reddit; for X reply it becomes "replying to" */
+    const showSub=(brand==="reddit")||(S.design==="x-reply");
     $("#sub").parentElement.classList.toggle("hide",!showSub);
-    $("#sub").previousElementSibling; /* noop */
     const subLbl=$("#subRow").querySelector('label[for="sub"]');
-    if(subLbl)subLbl.textContent=(P.brand==="x"&&!P.post)?"Replying to @":"Subreddit";
-    $("#verifiedRow").classList.toggle("hide",P.brand==="yt"||P.brand==="reddit");
-    $("#handleLabel").textContent=(P.brand==="reddit")?"u/username":(P.brand==="yt")?"@channel":"@handle";
-    $("#mediaDrop").classList.toggle("hide",!(P.post||P.brand==="reddit"));
+    if(subLbl)subLbl.textContent=(S.design==="x-reply")?"Replying to @":"Subreddit";
+    /* handle unused for facebook */
+    $("#handle").parentElement.classList.toggle("hide",brand==="fb");
+    $("#handleLabel").textContent=(brand==="reddit")?"u/username":(brand==="yt")?"@channel":(brand==="ig")?"username":"@handle";
+    /* badge only where platforms show one */
+    $("#badgeRow").classList.toggle("hide",brand==="yt"||brand==="reddit");
+    $("#followRow").classList.toggle("hide",S.design!=="fb-post");
+    const showMedia=(S.design==="x-post"||S.design==="reddit-post"||S.design==="fb-post");
+    $("#mediaDrop").classList.toggle("hide",!showMedia);
     buildMetrics();
-    /* sync identity inputs */
+    /* sync identity inputs + controls */
     ["name","handle","sub","time"].forEach(id=>{const el=$("#"+id);if(el){el.value=S[id]||"";markFilled(el);}});
-    $("#verified").checked=S.verified;
+    [...$("#badge").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===S.badge));
+    $("#follow").checked=S.follow;
   }
   invalidateLayout();updateFabLabel();scheduleDraw();
 }
