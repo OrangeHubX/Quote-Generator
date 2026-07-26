@@ -256,6 +256,7 @@ button,input,select,textarea{font-family:inherit}
             <option value="fb-comment">Facebook — Comment</option>
           </optgroup>
           <optgroup label="Instagram">
+            <option value="ig-post">Instagram — Post</option>
             <option value="ig-comment">Instagram — Comment</option>
           </optgroup>
         </select>
@@ -323,7 +324,13 @@ button,input,select,textarea{font-family:inherit}
           <div id="badgeRow"><span class="rowlab">Verified badge</span>
             <div class="segmented" id="badge"><button data-v="off">Off</button><button data-v="blue" aria-pressed="true">Blue</button><button data-v="gold">Gold</button></div>
           </div>
+          <div id="avShapeRow"><span class="rowlab">Avatar shape</span>
+            <div class="segmented" id="avShape"><button data-v="circle" aria-pressed="true">Circle</button><button data-v="square">Rounded square</button></div>
+          </div>
+          <div class="field compact hide" id="audioRow" style="margin-top:10px"><input type="text" id="audio" placeholder=" " spellcheck="false"><label for="audio">Audio line</label></div>
           <label class="swrow hide" id="followRow"><span class="lbl">Show “Follow”</span><input type="checkbox" id="follow" checked><span class="track"></span></label>
+          <label class="swrow hide" id="slashRow"><span class="lbl">Ad / subscribe glyph</span><input type="checkbox" id="xSlash"><span class="track"></span></label>
+          <label class="swrow"><span class="lbl">Liked<small>Fills the heart</small></span><input type="checkbox" id="likeOn"><span class="track"></span></label>
           <label class="drop" id="avatarDrop">
             <span class="thumb" id="avatarThumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span>
             <span class="lbl">Profile picture<small id="avatarName">Optional — a coloured initial is used otherwise</small></span>
@@ -342,6 +349,7 @@ button,input,select,textarea{font-family:inherit}
             <button type="button" class="x hide" id="mediaClear" aria-label="Remove">&times;</button>
             <input type="file" id="mediaFile" accept="image/*">
           </label>
+          <div class="field compact hide" id="mediaSrcRow" style="margin-top:10px"><input type="text" id="mediaSrc" placeholder=" " spellcheck="false"><label for="mediaSrc">Link source (“From …”)</label></div>
         </div>
       </div>
 
@@ -554,6 +562,7 @@ const DESIGNS={
   "yt-comment":  {social:true,brand:"yt",post:false},
   "fb-post":     {social:true,brand:"fb",post:true},
   "fb-comment":  {social:true,brand:"fb",post:false},
+  "ig-post":     {social:true,brand:"ig",post:true},
   "ig-comment":  {social:true,brand:"ig",post:false}
 };
 /* per-brand palette keyed by light/dark */
@@ -577,7 +586,7 @@ const METRICS={
   reddit:[["likes","Upvotes","3.1K"],["replies","Comments","214"]],
   yt:[["likes","Likes","1.2K"],["replies","Replies","48"]],
   fb:[["likes","Likes","842"],["replies","Comments","96"],["retweets","Shares","23"]],
-  ig:[["likes","Likes","5,204"],["replies","Replies","12"]]
+  ig:[["likes","Likes","5,204"],["replies","Comments","25"],["retweets","Reshares","452"]]
 };
 
 const S={
@@ -594,7 +603,8 @@ const S={
   /* social */
   name:"Rockstar Games",handle:"RockstarGames",badge:"blue",follow:true,sub:"GamingLeaksAndRumours",time:"2h",
   likes:"2.4K",retweets:"318",replies:"24",views:"98K",
-  avatar:null,media:null
+  avatar:null,media:null,
+  avShape:"circle",xSlash:false,likeOn:false,audio:"",mediaSrc:""
 };
 
 const $=s=>document.querySelector(s);
@@ -672,8 +682,10 @@ function remap(o,n,rs){
   return normalize(out.map(r=>[Math.max(0,r[0]),Math.min(n.length,r[1])]));
 }
 /* ---------- wrap ---------- */
-function wrap(c,text,maxW){
+function wrap(c,text,maxW,indent){
   const lines=[];if(maxW<=0)return lines;let para=0;
+  /* the first line can be shortened to sit beside an inline label (IG caption) */
+  const lim=()=>(indent&&lines.length===0)?Math.max(10,maxW-indent):maxW;
   text.split("\n").forEach(pt=>{
     const ps=para;para+=pt.length+1;
     if(!pt.trim()){lines.push([ps,ps]);return;}
@@ -681,16 +693,16 @@ function wrap(c,text,maxW){
     while((m=re.exec(pt)))tk.push([ps+m.index,ps+m.index+m[0].length]);
     let ls=0,le=null;
     const chop=(a,b)=>{let i=a;while(i<b){let j=i+1;
-      while(j<b&&c.measureText(text.slice(i,j+1)).width<=maxW)j++;
+      while(j<b&&c.measureText(text.slice(i,j+1)).width<=lim())j++;
       if(j>=b)return i;lines.push([i,j]);i=j;}return i;};
     const start=t=>{
-      if(c.measureText(text.slice(t[0],t[1])).width>maxW){
+      if(c.measureText(text.slice(t[0],t[1])).width>lim()){
         const rest=chop(t[0],t[1]);if(rest>=t[1]){le=null;return;}ls=rest;le=t[1];
       }else{ls=t[0];le=t[1];}
     };
     for(const t of tk){
       if(le===null){start(t);continue;}
-      if(c.measureText(text.slice(ls,t[1])).width<=maxW)le=t[1];
+      if(c.measureText(text.slice(ls,t[1])).width<=lim())le=t[1];
       else{lines.push([ls,le]);start(t);}
     }
     if(le!==null)lines.push([ls,le]);
@@ -730,9 +742,9 @@ function fmtCount(v){
 }
 
 /* ---------- shared rich-text block (highlight aware + slide-in) ---------- */
-function measureBlock(c,text,rs,maxW,fs,face,lh,weight){
+function measureBlock(c,text,rs,maxW,fs,face,lh,weight,indent){
   c.font=(weight||"")+fs+"px "+face;
-  const lines=text.trim()?wrap(c,text,maxW):[];
+  const lines=text.trim()?wrap(c,text,maxW,indent):[];
   const h=lines.length?lines.length*lh-(lh-fs*1.05):0;
   return {lines,h};
 }
@@ -741,8 +753,10 @@ function paintBlock(c,o){
   const {text,rs,lines,x,y,fs,lh,face,ink,hlColor,hlStyle}=o;
   const hp=o.hp==null?1:o.hp;
   c.font=(o.weight||"")+fs+"px "+face;c.textBaseline="alphabetic";
+  const indent=o.indent||0;
   let cy=y;
-  lines.forEach(([ls,le])=>{
+  lines.forEach(([ls,le],li)=>{
+    const x=o.x+((indent&&li===0)?indent:0);
     const base=cy+fs*0.82,segs=segments(text,ls,le,rs);
     const pre=i=>c.measureText(text.slice(ls,i)).width;
     /* ink text first (all of it — the marker wipe repaints dark on top as it reveals) */
@@ -826,314 +840,544 @@ function paintQuote(c,L,A){
   }
 }
 
-/* ---------- SOCIAL layout ---------- */
+/* ---------- SOCIAL: platform-accurate cards ---------- */
 function avatarInitial(){const n=(S.name||S.handle||"?").trim();return (n[0]||"?").toUpperCase();}
 function avatarColor(){const n=(S.name||S.handle||"x");let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;return AVCOL[h%AVCOL.length];}
-const SCFG={
-  "x-post":       {brand:"x",     bodyBelow:"avatar", full:false, headLines:1, reply:false},
-  "x-reply":      {brand:"x",     bodyBelow:"avatar", full:false, headLines:1, reply:true},
-  "reddit-post":  {brand:"reddit",bodyBelow:"avatar", full:true,  headLines:1, title:true},
-  "reddit-comment":{brand:"reddit",bodyBelow:"header",full:false, headLines:1},
-  "yt-comment":   {brand:"yt",    bodyBelow:"header", full:false, headLines:1},
-  "fb-post":      {brand:"fb",    bodyBelow:"avatar", full:true,  headLines:2},
-  "fb-comment":   {brand:"fb",    bodyBelow:"bubble", full:false, headLines:0},
-  "ig-comment":   {brand:"ig",    bodyBelow:"header", full:false, headLines:1, rightHeart:true}
+
+/* Icons defined on a 24x24 grid. f = filled path, s = stroked path (w = stroke width). */
+const IPATH={
+  /* --- X / Twitter (official 24x24 geometry, filled) --- */
+  xReply:{f:"M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.183-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.36 2.77 6.06 6.138 5.99l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z"},
+  xRetweet:{f:"M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z"},
+  xHeart:{f:"M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C9.984 6.01 8.526 5.44 7.304 5.5c-1.243.07-2.349.78-2.91 1.91-.552 1.12-.633 2.78.479 4.82 1.074 1.97 3.257 4.27 7.129 6.61 3.87-2.34 6.052-4.64 7.126-6.61 1.111-2.04 1.03-3.7.477-4.82-.561-1.13-1.666-1.84-2.908-1.91zm4.187 7.69c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z"},
+  xHeartOn:{f:"M20.884 13.19c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z"},
+  xViews:{f:"M8.75 21V3h2.5v18h-2.5zM18 21V8.5h2.5V21H18zM4 21l.004-10h2.5L6.5 21H4zm9.248 0v-7h2.5v7h-2.5z"},
+  xBookmark:{f:"M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4c-.276 0-.5.22-.5.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z"},
+  xShare:{f:"M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z"},
+  verified:{f:"M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.68.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.66 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.33-2.19c1.4.45 2.91.2 3.92-.81s1.26-2.52.8-3.91c1.31-.67 2.2-1.91 2.2-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z"},
+  slash:{s:"M12 3.2a8.8 8.8 0 1 0 0 17.6 8.8 8.8 0 0 0 0-17.6M5.8 5.8l12.4 12.4",w:1.9},
+  dots:{f:"M4.5 12a2.1 2.1 0 1 1-4.2 0 2.1 2.1 0 0 1 4.2 0m9.6 0a2.1 2.1 0 1 1-4.2 0 2.1 2.1 0 0 1 4.2 0m9.6 0a2.1 2.1 0 1 1-4.2 0 2.1 2.1 0 0 1 4.2 0"},
+  /* --- Facebook --- */
+  fbThumb:{s:"M6.4 10.2v9.4H3.9a1.1 1.1 0 0 1-1.1-1.1v-7.2a1.1 1.1 0 0 1 1.1-1.1zM6.4 10.2l4.3-7.3a1.7 1.7 0 0 1 3.1 1.3l-.9 4.7h5.3a2.1 2.1 0 0 1 2.05 2.6l-1.3 6a2.1 2.1 0 0 1-2.05 1.65H6.4z",w:1.55},
+  fbComment:{s:"M12 3.4c5 0 9.1 3.4 9.1 7.7 0 4.2-4.1 7.6-9.1 7.6-1.05 0-2.05-.15-3-.42L4.6 20.2l1.3-3.3C4 15.5 2.9 13.4 2.9 11.1c0-4.3 4.1-7.7 9.1-7.7z",w:1.55},
+  fbShare:{s:"M3.6 19.4c1.4-6.4 5.9-9.2 11.6-9.3M14 5.5l5.4 4.6L14 14.7",w:1.55},
+  /* --- Instagram --- */
+  igHeart:{s:"M12 20.3C7.1 17.5 3.7 14.3 3.7 10.6 3.7 7.8 5.85 5.6 8.5 5.6c1.55 0 2.85.8 3.5 1.9.65-1.1 1.95-1.9 3.5-1.9 2.65 0 4.8 2.2 4.8 5 0 3.7-3.4 6.9-8.3 9.7z",w:1.75},
+  igComment:{s:"M12 3.6c4.65 0 8.4 3.35 8.4 7.5 0 4.15-3.75 7.5-8.4 7.5-1 0-1.95-.15-2.85-.42L5.4 20l1.25-3.25C4.8 15.35 3.6 13.3 3.6 11.1c0-4.15 3.75-7.5 8.4-7.5z",w:1.75},
+  igSend:{s:"M21.4 3.6 2.9 9.85l7.35 2.3 2.3 7.35zM10.25 12.15 21.4 3.6",w:1.75},
+  igBookmark:{s:"M5.9 3.4h12.2v17.2L12 16.1l-6.1 4.5z",w:1.75},
+  igReshare:{s:"M6.6 10V9a2.4 2.4 0 0 1 2.4-2.4h8.6l-2.9-2.9M17.4 14v1a2.4 2.4 0 0 1-2.4 2.4H6.4l2.9 2.9",w:1.75},
+  igMenu:{s:"M3.6 8h16.8M3.6 16h16.8",w:1.8},
+  igMusic:{f:"M20 3.2 9.4 5.5v9.9a3.2 3.2 0 1 0 1.7 2.85V7.1l7.2-1.55v7.6a3.2 3.2 0 1 0 1.7 2.85z"},
+  globe:{s:"M12 3.6a8.4 8.4 0 1 0 0 16.8 8.4 8.4 0 0 0 0-16.8M3.7 12h16.6M12 3.6c2.4 2.6 2.4 14.2 0 16.8-2.4-2.6-2.4-14.2 0-16.8",w:1.7},
+  /* --- Reddit / YouTube (kept for the other designs) --- */
+  rUp:{s:"M12 4.6 4.4 13h4.2v6.4h6.8V13h4.2z",w:1.7},
+  rDown:{s:"M12 19.4 4.4 11h4.2V4.6h6.8V11h4.2z",w:1.7},
+  ytThumb:{s:"M6.4 10.2v9.4H3.9a1.1 1.1 0 0 1-1.1-1.1v-7.2a1.1 1.1 0 0 1 1.1-1.1zM6.4 10.2l4.3-7.3a1.7 1.7 0 0 1 3.1 1.3l-.9 4.7h5.3a2.1 2.1 0 0 1 2.05 2.6l-1.3 6a2.1 2.1 0 0 1-2.05 1.65H6.4z",w:1.55}
 };
+function drawIcon(c,name,x,y,size,col,rot){
+  const ic=IPATH[name];if(!ic)return;
+  c.save();
+  if(rot){c.translate(x+size/2,y+size/2);c.rotate(rot*Math.PI/180);c.translate(-size/2,-size/2);}
+  else c.translate(x,y);
+  const k=size/24;c.scale(k,k);
+  if(ic.f){c.fillStyle=col;c.fill(new Path2D(ic.f));}
+  if(ic.s){c.strokeStyle=col;c.lineWidth=ic.w||1.7;c.lineCap="round";c.lineJoin="round";c.stroke(new Path2D(ic.s));}
+  c.restore();
+}
+/* rounded-square avatar (X brand accounts) or circle */
+function avatarPath(c,x,y,s,shape){
+  if(shape==="square")rr(c,x,y,s,s,s*0.22);
+  else{c.beginPath();c.arc(x+s/2,y+s/2,s/2,0,7);c.closePath();}
+}
+function drawAvatar(c,x,y,s,shape){
+  c.save();avatarPath(c,x,y,s,shape);c.clip();
+  if(S.avatar)c.drawImage(S.avatar,x,y,s,s);
+  else{
+    c.fillStyle=avatarColor();c.fillRect(x,y,s,s);
+    c.fillStyle="#fff";c.font="600 "+Math.round(s*0.44)+"px "+SANS;
+    c.textAlign="center";c.textBaseline="middle";
+    c.fillText(avatarInitial(),x+s/2,y+s/2+s*0.02);
+    c.textAlign="left";c.textBaseline="alphabetic";
+  }
+  c.restore();
+}
 function gc(id){return fmtCount(S[id]||"");}
+/* Name + @handle + · time on one line. Time is always kept; name and handle
+   share the remaining room and each ellipsize, the way the real clients do. */
+function fitXHead(c,nameFont,name,metaFont,handle,timeStr,avail,badgeW){
+  c.font=metaFont;
+  const tw=timeStr?c.measureText(timeStr).width:0;
+  let h=handle,hw=c.measureText(h).width;
+  c.font=nameFont;let n=name,nw=c.measureText(n).width;
+  const room=avail-badgeW-tw;
+  if(room>0&&nw+hw>room){
+    const share=Math.min(0.62,Math.max(0.38,nw/(nw+hw)));
+    c.font=nameFont;
+    if(nw>room*share){n=ellip(c,n,room*share);nw=c.measureText(n).width;}
+    c.font=metaFont;
+    if(hw>room-nw){h=ellip(c,h,room-nw);hw=c.measureText(h).width;}
+  }
+  return {name:n,nameW:nw,meta:h+(timeStr||"")};
+}
+
+const SCFG={
+  "x-post":        {brand:"x",     variant:"x",    reply:false},
+  "x-reply":       {brand:"x",     variant:"x",    reply:true},
+  "reddit-post":   {brand:"reddit",variant:"rpost"},
+  "reddit-comment":{brand:"reddit",variant:"rcom"},
+  "yt-comment":    {brand:"yt",    variant:"ytcom"},
+  "fb-post":       {brand:"fb",    variant:"fbpost"},
+  "fb-comment":    {brand:"fb",    variant:"fbcom"},
+  "ig-post":       {brand:"ig",    variant:"igpost"},
+  "ig-comment":    {brand:"ig",    variant:"igcom"}
+};
+
 function layoutSocial(c,fs){
-  const cfg=SCFG[S.design],brand=cfg.brand,pal=brandPal();
-  const cardW=FW*(S.width/100);
-  const pad=Math.round(fs*0.9);
-  const bodyFs=fs, bodyLh=Math.round(fs*1.4);
-  const av = (cfg.title)?Math.round(fs*1.7)
-           : (cfg.bodyBelow==="header"||brand==="ig")?Math.round(fs*1.95)
-           : (brand==="fb"&&cfg.full)?Math.round(fs*2.5)
-           : Math.round(fs*2.3);
-  const gap=Math.round(fs*0.5);
-  const contentX=pad+av+gap;
-  const oneLine=Math.round(fs*1.15);
-  const titleWeight=cfg.title?"700 ":"";
+  const cfg=SCFG[S.design],brand=cfg.brand,V=cfg.variant,pal=brandPal();
+  const cardW=Math.round(FW*(S.width/100));
+  const L={kind:"social",fs,cardW,pal,brand,cfg,V,bodyFs:fs,bodyLh:Math.round(fs*1.38)};
 
-  /* fb-comment bubble is its own geometry */
-  if(cfg.bodyBelow==="bubble"){
-    const bx=contentX, innerPad=Math.round(fs*0.55);
-    const bw=cardW-contentX-pad;
-    const nameH=Math.round(fs*1.25);
-    const {lines,h:bodyH}=measureBlock(c,S.text,S.ranges,bw-innerPad*2,bodyFs,SANS,bodyLh);
-    const bubbleH=nameH+bodyH+innerPad*1.3;
-    const actionsH=Math.round(fs*1.3);
-    const cardH=Math.round(pad+Math.max(av,bubbleH+actionsH)+pad*0.6);
-    return {kind:"social",bubble:true,fs,cardW,cardH,pad,av,contentX,bx,bw,innerPad,nameH,
-      lines,bodyH,bodyFs,bodyLh,bubbleH,actionsH,pal,brand,cfg};
+  if(V==="x"){
+    const pad=Math.round(fs*1.05),av=Math.round(fs*2.7),gap=Math.round(fs*0.62);
+    const bodyX=pad+av+gap, bodyW=cardW-bodyX-pad;
+    L.pad=pad;L.av=av;L.avShape=S.avShape||"circle";L.bodyX=bodyX;L.bodyW=bodyW;
+    L.nameFs=Math.round(fs*0.94);L.metaFs=Math.round(fs*0.94);
+    L.headTop=pad;L.headH=Math.round(fs*1.72);
+    L.replyH=cfg.reply?Math.round(fs*1.5):0;
+    L.bodyTop=pad+L.headH+L.replyH;
+    const mb=measureBlock(c,S.text,S.ranges,bodyW,fs,SANS,L.bodyLh);
+    L.lines=mb.lines;L.bodyH=mb.h;
+    let cur=L.bodyTop+L.bodyH;
+    if(S.media){
+      L.mediaTop=cur+Math.round(fs*0.6);
+      L.media={x:bodyX,w:bodyW,h:Math.min(bodyW*(S.media.height/S.media.width),fs*12)};
+      cur=L.mediaTop+L.media.h;
+      if(S.mediaSrc){L.srcFs=Math.round(fs*0.82);L.srcTop=cur+Math.round(fs*0.5);cur=L.srcTop+L.srcFs;}
+    }
+    L.footTop=cur+Math.round(fs*0.75);L.footH=Math.round(fs*1.25);
+    L.cardH=L.footTop+L.footH+pad*0.85;
   }
-
-  const bodyX = cfg.full?pad:contentX;
-  const bodyW = cfg.full?(cardW-pad*2):(cardW-contentX-pad);
-  const replyH = cfg.reply?Math.round(fs*1.35):0;
-  const headH = cfg.bodyBelow==="avatar" ? av+Math.round(fs*0.45)
-              : oneLine+Math.round(fs*0.3);
-  const {lines,h:bodyH}=measureBlock(c,S.text,S.ranges,bodyW,bodyFs,SANS,bodyLh,titleWeight);
-
-  const bodyTop=pad+headH+replyH;
-  let cursor=bodyTop+bodyH;
-
-  let media=null,mediaTop=0;
-  const wantMedia=S.media&&(S.design==="x-post"||S.design==="reddit-post"||S.design==="fb-post");
-  if(wantMedia){
-    const mx=cfg.full?pad:bodyX;
-    const iw=cfg.full?(cardW-pad*2):bodyW;
-    let ih=iw*(S.media.height/S.media.width);ih=Math.min(ih,fs*13);
-    mediaTop=cursor+Math.round(fs*0.55);
-    media={w:iw,h:ih,x:mx};
-    cursor=mediaTop+ih;
+  else if(V==="fbpost"){
+    const pad=Math.round(fs*0.95),av=Math.round(fs*2.85),gap=Math.round(fs*0.55);
+    L.pad=pad;L.av=av;L.gap=gap;L.headX=pad+av+gap;
+    L.nameFs=Math.round(fs*0.88);L.metaFs=Math.round(fs*0.72);
+    L.headTop=pad;L.headH=av;
+    L.bodyX=pad;L.bodyW=cardW-pad*2;
+    L.bodyTop=pad+av+Math.round(fs*0.7);
+    const mb=measureBlock(c,S.text,S.ranges,L.bodyW,fs,SANS,L.bodyLh);
+    L.lines=mb.lines;L.bodyH=mb.h;
+    let cur=L.bodyTop+L.bodyH;
+    if(S.media){                                 /* full-bleed, edge to edge */
+      L.mediaTop=cur+Math.round(fs*0.65);
+      L.media={x:0,w:cardW,h:Math.min(cardW*(S.media.height/S.media.width),fs*13),bleed:true};
+      cur=L.mediaTop+L.media.h;
+    }
+    L.countsTop=cur+Math.round(fs*1.0);L.countsFs=Math.round(fs*0.76);
+    L.ruleTop=L.countsTop+Math.round(fs*0.62);
+    L.actTop=L.ruleTop+Math.round(fs*0.35);L.actH=Math.round(fs*1.75);
+    L.cardH=L.actTop+L.actH+Math.round(fs*0.35);
   }
-  if(cfg.bodyBelow==="header")cursor=Math.max(cursor,pad+av);
+  else if(V==="fbcom"){
+    const pad=Math.round(fs*0.9),av=Math.round(fs*2.6),gap=Math.round(fs*0.55);
+    L.pad=pad;L.av=av;L.bodyX=pad+av+gap;
+    L.nameFs=Math.round(fs*0.84);L.metaFs=Math.round(fs*0.76);
+    L.rightW=Math.round(fs*3.4);                 /* reserved on the action row only */
+    L.bodyW=cardW-L.bodyX-pad;                   /* text runs the full column */
+    L.headTop=pad;L.headH=Math.round(fs*1.3);
+    L.bodyTop=pad+L.headH;
+    const mb=measureBlock(c,S.text,S.ranges,L.bodyW,fs,SANS,L.bodyLh);
+    L.lines=mb.lines;L.bodyH=mb.h;
+    L.actTop=L.bodyTop+L.bodyH+Math.round(fs*0.6);L.actH=Math.round(fs*1.35);
+    L.cardH=Math.max(L.actTop+L.actH,pad+av)+pad*0.7;
+  }
+  else if(V==="igpost"){
+    const pad=Math.round(fs*0.95),av=Math.round(fs*2.4),gap=Math.round(fs*0.6);
+    L.pad=pad;L.av=av;L.headX=pad+av+gap;
+    L.nameFs=Math.round(fs*0.92);L.metaFs=Math.round(fs*0.76);
+    L.headTop=pad;L.headH=av;
+    L.mediaTop=pad+av+Math.round(fs*0.7);
+    const mw=cardW;
+    L.media=S.media?{x:0,w:mw,h:Math.min(mw*(S.media.height/S.media.width),fs*16),bleed:true}
+                   :{x:0,w:mw,h:Math.round(mw*1.0),bleed:true,placeholder:true};
+    L.actTop=L.mediaTop+L.media.h+Math.round(fs*0.75);L.actIS=Math.round(fs*1.5);
+    L.capTop=L.actTop+L.actIS+Math.round(fs*0.95);
+    /* caption: bold username sits inline before the first line of text */
+    c.font="600 "+fs+"px "+SANS;
+    L.capName=(S.handle||S.name||"username")+" ";
+    L.capIndent=c.measureText(L.capName).width;
+    const mb=measureBlock(c,S.text,S.ranges,cardW-pad*2,fs,SANS,L.bodyLh,"",L.capIndent);
+    L.lines=mb.lines;L.bodyH=mb.h;L.bodyX=pad;L.bodyW=cardW-pad*2;
+    L.dateTop=L.capTop+L.bodyH+Math.round(fs*0.55);L.dateFs=Math.round(fs*0.76);
+    L.cardH=L.dateTop+L.dateFs+pad;
+  }
+  else if(V==="igcom"){
+    const pad=Math.round(fs*0.9),av=Math.round(fs*2.75),gap=Math.round(fs*0.62);
+    L.pad=pad;L.av=av;L.bodyX=pad+av+gap;
+    L.nameFs=Math.round(fs*0.84);L.metaFs=Math.round(fs*0.8);
+    L.rightW=Math.round(fs*2.0);                 /* heart + count column */
+    L.bodyW=cardW-L.bodyX-pad-L.rightW;
+    L.headTop=pad;L.headH=Math.round(fs*1.25);
+    L.bodyTop=pad+L.headH;
+    const mb=measureBlock(c,S.text,S.ranges,L.bodyW,fs,SANS,L.bodyLh);
+    L.lines=mb.lines;L.bodyH=mb.h;
+    L.actTop=L.bodyTop+L.bodyH+Math.round(fs*0.5);L.actH=Math.round(fs*1.2);
+    L.cardH=Math.max(L.actTop+L.actH,pad+av)+pad*0.7;
+  }
+  else {  /* reddit + youtube */
+    const title=(V==="rpost");
+    const pad=Math.round(fs*0.9),av=title?Math.round(fs*1.75):Math.round(fs*2.0),gap=Math.round(fs*0.5);
+    L.pad=pad;L.av=av;L.bodyX=title?pad:(pad+av+gap);L.headX=pad+av+gap;
+    L.nameFs=Math.round(fs*0.86);L.metaFs=Math.round(fs*0.8);
+    L.headTop=pad;L.headH=title?av+Math.round(fs*0.55):Math.round(fs*1.25);
+    L.bodyTop=pad+L.headH;
+    L.bodyW=cardW-L.bodyX-pad;
+    L.titleWeight=title?"700 ":"";
+    const mb=measureBlock(c,S.text,S.ranges,L.bodyW,fs,SANS,L.bodyLh,L.titleWeight);
+    L.lines=mb.lines;L.bodyH=mb.h;
+    let cur=L.bodyTop+L.bodyH;
+    if(S.media&&title){
+      L.mediaTop=cur+Math.round(fs*0.6);
+      L.media={x:L.bodyX,w:L.bodyW,h:Math.min(L.bodyW*(S.media.height/S.media.width),fs*12)};
+      cur=L.mediaTop+L.media.h;
+    }
+    if(V!=="rpost")cur=Math.max(cur,pad+av);
+    L.footTop=cur+Math.round(fs*0.6);L.footH=title?Math.round(fs*1.9):Math.round(fs*1.3);
+    L.cardH=L.footTop+L.footH+pad*0.7;
+  }
+  L.cardH=Math.round(L.cardH);
+  return L;
+}
 
-  const footGap=Math.round(fs*0.5);
-  const footH = (brand==="fb")?Math.round(fs*2.7)
-              : (brand==="reddit"&&cfg.title)?Math.round(fs*1.85)
-              : Math.round(fs*1.5);
-  const footTop=cursor+footGap;
-  const cardH=Math.round(footTop+footH+pad*0.5);
-  return {kind:"social",fs,cardW,cardH,pad,av,gap,contentX,bodyX,bodyW,bodyFs,bodyLh,oneLine,
-    titleWeight,lines,bodyH,bodyTop,replyH,media,mediaTop,footTop,footH,pal,brand,cfg};
-}
-/* small canvas icon set (stroke) */
-function icon(c,name,x,y,s,col,fill){
-  c.save();c.translate(x,y);c.strokeStyle=col;c.fillStyle=col;
-  c.lineWidth=s*0.085;c.lineCap="round";c.lineJoin="round";
-  const p=new Path2D();
-  if(name==="heart"){p.moveTo(s*.5,s*.85);p.bezierCurveTo(s*-.05,s*.5,s*.1,s*.12,s*.5,s*.32);p.bezierCurveTo(s*.9,s*.12,s*1.05,s*.5,s*.5,s*.85);
-    if(fill)c.fill(p);else c.stroke(p);}
-  else if(name==="reply"){p.moveTo(s*.15,s*.2);p.lineTo(s*.85,s*.2);p.lineTo(s*.85,s*.68);p.lineTo(s*.4,s*.68);p.lineTo(s*.2,s*.85);p.lineTo(s*.2,s*.68);p.lineTo(s*.15,s*.68);p.closePath();c.stroke(p);}
-  else if(name==="rt"){c.stroke(new Path2D("M"+(s*.2)+" "+(s*.35)+"h"+(s*.4)+"a"+(s*.12)+" "+(s*.12)+" 0 0 1 "+(s*.12)+" "+(s*.12)+"v"+(s*.28)));
-    p.moveTo(s*.1,s*.35);p.lineTo(s*.25,s*.2);p.lineTo(s*.4,s*.35);c.stroke(p);
-    const q=new Path2D();c.stroke(new Path2D("M"+(s*.8)+" "+(s*.65)+"h"+(-s*.4)+"a"+(s*.12)+" "+(s*.12)+" 0 0 1 "+(-s*.12)+" "+(-s*.12)+"v"+(-s*.28)));
-    q.moveTo(s*.9,s*.65);q.lineTo(s*.75,s*.8);q.lineTo(s*.6,s*.65);c.stroke(q);}
-  else if(name==="views"){c.stroke(new Path2D("M"+(s*.15)+" "+(s*.8)+"v"+(-s*.25)+"M"+(s*.38)+" "+(s*.8)+"v"+(-s*.45)+"M"+(s*.61)+" "+(s*.8)+"v"+(-s*.3)+"M"+(s*.84)+" "+(s*.8)+"v"+(-s*.6)));}
-  else if(name==="up"){p.moveTo(s*.2,s*.55);p.lineTo(s*.5,s*.2);p.lineTo(s*.8,s*.55);c.stroke(p);}
-  else if(name==="down"){p.moveTo(s*.2,s*.45);p.lineTo(s*.5,s*.8);p.lineTo(s*.8,s*.45);c.stroke(p);}
-  else if(name==="thumb"){c.stroke(new Path2D("M"+(s*.15)+" "+(s*.45)+"h"+(s*.15)+"v"+(s*.4)+"h"+(-s*.15)+"z"));
-    c.stroke(new Path2D("M"+(s*.3)+" "+(s*.5)+"l"+(s*.18)+" "+(-s*.32)+"a"+(s*.09)+" "+(s*.09)+" 0 0 1 "+(s*.16)+" "+(s*.05)+"l"+(-s*.04)+" "+(s*.22)+"h"+(s*.24)+"a"+(s*.1)+" "+(s*.1)+" 0 0 1 "+(s*.1)+" "+(s*.12)+"l"+(-s*.08)+" "+(s*.3)+"a"+(s*.1)+" "+(s*.1)+" 0 0 1 "+(-s*.1)+" "+(s*.06)+"h"+(-s*.46)+"z"));}
-  else if(name==="comment"){c.stroke(new Path2D("M"+(s*.15)+" "+(s*.25)+"h"+(s*.7)+"a"+(s*.08)+" "+(s*.08)+" 0 0 1 "+(s*.08)+" "+(s*.08)+"v"+(s*.3)+"a"+(s*.08)+" "+(s*.08)+" 0 0 1 "+(-s*.08)+" "+(s*.08)+"h"+(-s*.4)+"l"+(-s*.15)+" "+(s*.15)+"v"+(-s*.15)+"h"+(-s*.15)+"a"+(s*.08)+" "+(s*.08)+" 0 0 1 "+(-s*.08)+" "+(-s*.08)+"v"+(-s*.3)+"a"+(s*.08)+" "+(s*.08)+" 0 0 1 "+(s*.08)+" "+(-s*.08)+"z"));}
-  else if(name==="share"){p.moveTo(s*.5,s*.7);p.lineTo(s*.5,s*.2);p.moveTo(s*.32,s*.38);p.lineTo(s*.5,s*.2);p.lineTo(s*.68,s*.38);c.stroke(p);
-    c.stroke(new Path2D("M"+(s*.25)+" "+(s*.5)+"v"+(s*.32)+"h"+(s*.5)+"v"+(-s*.32)));}
-  else if(name==="bookmark"){c.stroke(new Path2D("M"+(s*.3)+" "+(s*.2)+"h"+(s*.4)+"v"+(s*.6)+"l"+(-s*.2)+" "+(-s*.15)+"l"+(-s*.2)+" "+(s*.15)+"z"));}
-  else if(name==="send"){p.moveTo(s*.85,s*.18);p.lineTo(s*.15,s*.45);p.lineTo(s*.45,s*.55);p.lineTo(s*.55,s*.85);p.closePath();c.stroke(p);}
-  else if(name==="globe"){c.beginPath();c.arc(s*.5,s*.5,s*.34,0,7);c.stroke();
-    c.stroke(new Path2D("M"+(s*.16)+" "+(s*.5)+"h"+(s*.68)+"M"+(s*.5)+" "+(s*.16)+"q"+(s*.28)+" "+(s*.34)+" 0 "+(s*.68)+"q"+(-s*.28)+" "+(-s*.34)+" 0 "+(-s*.68)));}
-  else if(name==="dots"){for(let i=0;i<3;i++){c.beginPath();c.arc(s*(.3+i*.2),s*.5,s*.06,0,7);c.fill();}}
-  c.restore();
-}
-function badge(c,x,y,s,col){ /* verified check */
-  c.save();c.fillStyle=col;c.beginPath();
-  const cx=x+s/2,cy=y+s/2,r=s/2;const spikes=12;
-  for(let i=0;i<spikes*2;i++){const ang=i*Math.PI/spikes;const rr2=i%2?r*0.86:r;
-    const px=cx+Math.cos(ang)*rr2,py=cy+Math.sin(ang)*rr2;i?c.lineTo(px,py):c.moveTo(px,py);}
-  c.closePath();c.fill();
-  c.strokeStyle="#fff";c.lineWidth=s*0.12;c.lineCap="round";c.lineJoin="round";
-  c.beginPath();c.moveTo(cx-s*0.2,cy);c.lineTo(cx-s*0.03,cy+s*0.17);c.lineTo(cx+s*0.22,cy-s*0.15);c.stroke();
-  c.restore();
-}
-function drawAvatar(c,x,y,s){
-  c.save();c.beginPath();c.arc(x+s/2,y+s/2,s/2,0,7);c.closePath();c.clip();
-  if(S.avatar){c.drawImage(S.avatar,x,y,s,s);}
-  else{c.fillStyle=avatarColor();c.fillRect(x,y,s,s);
-    c.fillStyle="#fff";c.font="600 "+Math.round(s*0.5)+"px "+SANS;c.textAlign="center";c.textBaseline="middle";
-    c.fillText(avatarInitial(),x+s/2,y+s/2+s*0.03);c.textAlign="left";c.textBaseline="alphabetic";}
-  c.restore();
-}
-function iconRot(c,name,x,y,s,col,deg){c.save();c.translate(x+s/2,y+s/2);c.rotate(deg*Math.PI/180);icon(c,name,-s/2,-s/2,s,col);c.restore();}
 function paintSocial(c,L,A){
-  const X0=L.x,Y0=L.y,cardW=L.cardW,cardH=L.cardH,pad=L.pad,fs=L.fs,pal=L.pal,brand=L.brand,cfg=L.cfg;
+  const X=L.x,Y=L.y,W=L.cardW,H=L.cardH,fs=L.fs,pal=L.pal,V=L.V;
   const hp=A?A.hp:1;
-  const radius=brand==="ig"?Math.round(fs*0.25):Math.round(fs*0.6);
+  const radius=(V==="igpost"||V==="fbpost")?Math.round(fs*0.35):Math.round(fs*0.6);
   c.save();c.shadowColor="rgba(0,0,0,.4)";c.shadowBlur=fs*0.8;c.shadowOffsetY=fs*0.28;
-  c.fillStyle=pal.bg;rr(c,X0,Y0,cardW,cardH,radius);c.fill();c.restore();
-  if(themeKey()==="light"){c.strokeStyle=pal.rule;c.lineWidth=Math.max(1,fs*0.025);rr(c,X0,Y0,cardW,cardH,radius);c.stroke();}
-  if(L.bubble){paintFbComment(c,L,A);return;}
-
-  const av=L.av,contentX=L.contentX,bodyX=L.bodyX,bodyFs=L.bodyFs,bodyLh=L.bodyLh,lines=L.lines,bodyTop=L.bodyTop;
-  const avX=X0+pad,avY=Y0+pad;
-  const right=X0+cardW-pad;
-
-  if(brand==="x"){
-    drawAvatar(c,avX,avY,av);
-    const hx=X0+contentX,yb=avY+fs*1.02,rlim=right-fs*1.4;
-    c.font="700 "+fs+"px "+SANS;c.fillStyle=pal.ink;
-    const nm=ellip(c,S.name||"Name",(rlim-hx)*0.55);
-    c.fillText(nm,hx,yb);let cxp=hx+c.measureText(nm).width+fs*0.14;
-    if(S.badge!=="off"){const bs=fs*0.92;badge(c,cxp,yb-bs*0.86,bs,S.badge==="gold"?"#F5B400":pal.badge);cxp+=bs+fs*0.14;}
-    c.font=(fs*0.94)+"px "+SANS;c.fillStyle=pal.sub;
-    let meta="@"+(S.handle||"handle");if(S.time)meta+=" · "+S.time;
-    c.fillText(ellip(c,meta,rlim-cxp),cxp,yb);
-    icon(c,"dots",right-fs*1.0,avY+fs*0.05,fs*1.0,pal.sub);
-  }
-  else if(brand==="fb"&&cfg.full){
-    drawAvatar(c,avX,avY,av);
-    const hx=X0+contentX;
-    c.font="700 "+(fs*0.98)+"px "+SANS;c.fillStyle=pal.ink;
-    const nm=ellip(c,S.name||"Name",(right-hx)*0.72);
-    c.fillText(nm,hx,avY+fs*1.02);
-    if(S.follow){const fw=c.measureText(nm).width;c.font="700 "+(fs*0.9)+"px "+SANS;c.fillStyle=pal.accent;c.fillText(" · Follow",hx+fw,avY+fs*1.02);}
-    c.font=(fs*0.8)+"px "+SANS;c.fillStyle=pal.sub;
-    const tstr=(S.time||"2h")+"  ";c.fillText(tstr,hx,avY+fs*2.15);
-    icon(c,"globe",hx+c.measureText(tstr).width,avY+fs*1.5,fs*0.82,pal.sub);
-    icon(c,"dots",right-fs*1.0,avY+fs*0.2,fs*1.0,pal.sub);
-  }
-  else if(brand==="reddit"&&cfg.title){
-    c.save();c.beginPath();c.arc(avX+av/2,avY+av/2,av/2,0,7);c.clip();
-    c.fillStyle="#FF4500";c.fillRect(avX,avY,av,av);
-    if(S.avatar)c.drawImage(S.avatar,avX,avY,av,av);c.restore();
-    const hx=X0+contentX,yb=avY+av*0.5+fs*0.3;
-    c.font="700 "+(fs*0.82)+"px "+SANS;c.fillStyle=pal.ink;
-    const sr=ellip(c,"r/"+(S.sub||"subreddit"),(right-hx)*0.68);
-    c.fillText(sr,hx,yb);const sw=c.measureText(sr).width;
-    c.font=(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(ellip(c," · "+(S.time||"5h"),right-fs*1.4-(hx+sw)),hx+sw,yb);
-    icon(c,"dots",right-fs*1.0,avY+av*0.5-fs*0.45,fs*1.0,pal.sub);
-  }
-  else if(brand==="reddit"){
-    drawAvatar(c,avX,avY,av);
-    const hx=X0+contentX,yb=avY+fs*0.95;
-    c.font="700 "+(fs*0.86)+"px "+SANS;c.fillStyle=pal.ink;
-    const un=ellip(c,"u/"+(S.handle||"user"),(right-hx)*0.66);
-    c.fillText(un,hx,yb);const uw=c.measureText(un).width;
-    c.font=(fs*0.82)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(ellip(c," · "+(S.time||"5h"),right-pad-(hx+uw)),hx+uw,yb);
-  }
-  else if(brand==="yt"){
-    drawAvatar(c,avX,avY,av);
-    const hx=X0+contentX,yb=avY+fs*0.95;
-    c.font="600 "+(fs*0.84)+"px "+SANS;c.fillStyle=pal.ink;
-    const nm=ellip(c,S.name||"Name",(right-hx)*0.6);
-    c.fillText(nm,hx,yb);const nw=c.measureText(nm).width;
-    c.font=(fs*0.82)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(ellip(c," · "+(S.time||"5d"),right-pad-(hx+nw)),hx+nw,yb);
-  }
-  else if(brand==="ig"){
-    drawAvatar(c,avX,avY,av);
-    const hx=X0+contentX,yb=avY+fs*0.95;
-    c.font="600 "+(fs*0.86)+"px "+SANS;c.fillStyle=pal.ink;
-    const nm=ellip(c,S.handle||S.name||"username",(right-hx)*0.55);
-    c.fillText(nm,hx,yb);let nw=c.measureText(nm).width;
-    if(S.badge!=="off"){const bs=fs*0.68;badge(c,hx+nw+fs*0.1,yb-bs*0.9,bs,pal.badge);nw+=bs+fs*0.2;}
-    c.font=(fs*0.8)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(ellip(c,"  "+(S.time||"1w"),right-fs*1.5-(hx+nw)),hx+nw,yb);
-    const hs=fs*1.0,hcx=right-fs*0.95;
-    icon(c,"heart",hcx-hs/2,avY+fs*0.25,hs,pal.sub);
-    if(S.likes){c.font=(fs*0.68)+"px "+SANS;c.fillStyle=pal.sub;c.textAlign="center";
-      c.fillText(gc("likes"),hcx,avY+fs*0.25+hs+fs*0.62);c.textAlign="left";}
-  }
-
-  if(cfg.reply){
-    const ry=Y0+bodyTop-L.replyH+fs*0.95;
-    c.font=(fs*0.94)+"px "+SANS;c.fillStyle=pal.sub;
-    c.fillText("Replying to ",X0+bodyX,ry);const rw=c.measureText("Replying to ").width;
-    c.fillStyle=pal.accent;c.fillText("@"+(S.sub||"user"),X0+bodyX+rw,ry);
-  }
-
-  paintBlock(c,{text:S.text,rs:S.ranges,lines,x:X0+bodyX,y:Y0+bodyTop,fs:bodyFs,lh:bodyLh,
-    face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,hp,weight:L.titleWeight});
-
-  if(L.media){
-    const m=L.media,mx=X0+m.x,my=Y0+L.mediaTop,mr=(brand==="fb")?Math.round(fs*0.12):Math.round(fs*0.35);
-    c.save();rr(c,mx,my,m.w,m.h,mr);c.clip();
-    const sc=Math.max(m.w/S.media.width,m.h/S.media.height),dw=S.media.width*sc,dh=S.media.height*sc;
-    c.drawImage(S.media,mx+(m.w-dw)/2,my+(m.h-dh)/2,dw,dh);c.restore();
-    c.strokeStyle=pal.rule;c.lineWidth=Math.max(1,fs*0.02);rr(c,mx,my,m.w,m.h,mr);c.stroke();
-  }
-  paintFooter(c,L,X0,Y0);
+  c.fillStyle=pal.bg;rr(c,X,Y,W,H,radius);c.fill();c.restore();
+  if(themeKey()==="light"){c.strokeStyle=pal.rule;c.lineWidth=Math.max(1,fs*0.022);rr(c,X,Y,W,H,radius);c.stroke();}
+  /* keep full-bleed media inside the rounded card */
+  c.save();rr(c,X,Y,W,H,radius);c.clip();
+  if(V==="x")paintX(c,L,hp);
+  else if(V==="fbpost")paintFbPost(c,L,hp);
+  else if(V==="fbcom")paintFbComment(c,L,hp);
+  else if(V==="igpost")paintIgPost(c,L,hp);
+  else if(V==="igcom")paintIgComment(c,L,hp);
+  else paintRedditYt(c,L,hp);
+  c.restore();
 }
-function paintFooter(c,L,X0,Y0){
-  const fs=L.fs,pad=L.pad,cardW=L.cardW,brand=L.brand,cfg=L.cfg,pal=L.pal,footTop=L.footTop,bodyX=L.bodyX,contentX=L.contentX;
-  const fy=Y0+footTop+fs*0.85,iS=fs*1.0;
-  if(brand==="x"){
-    const items=[["reply",gc("replies")],["rt",gc("retweets")],["heart",gc("likes")],["views",gc("views")],["bookmark",""],["send",""]];
-    const left=X0+pad,right=X0+cardW-pad,step=(right-left-iS)/5;
-    items.forEach((it,i)=>{const ix=left+step*i;
-      icon(c,it[0],ix,fy-iS*0.7,iS,pal.sub,false);
-      if(it[1]){c.font=(fs*0.72)+"px "+SANS;c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText(it[1],ix+iS+fs*0.12,fy);c.textBaseline="alphabetic";}});
+function drawMedia(c,L,X,Y){
+  const m=L.media;if(!m)return;
+  const mx=X+m.x,my=Y+L.mediaTop,fs=L.fs;
+  const radius=m.bleed?0:Math.round(fs*0.42);
+  c.save();
+  if(radius)rr(c,mx,my,m.w,m.h,radius);else{c.beginPath();c.rect(mx,my,m.w,m.h);}
+  c.clip();
+  if(m.placeholder||!S.media){
+    c.fillStyle=themeKey()==="dark"?"#2A2A2C":"#E4E6EB";c.fillRect(mx,my,m.w,m.h);
+    c.fillStyle=themeKey()==="dark"?"#4A4A4E":"#BCC0C4";
+    const s=Math.min(m.w,m.h)*0.16;drawIcon(c,"igComment",mx+m.w/2-s/2,my+m.h/2-s/2,s,c.fillStyle);
+  }else{
+    const sc=Math.max(m.w/S.media.width,m.h/S.media.height);
+    const dw=S.media.width*sc,dh=S.media.height*sc;
+    c.drawImage(S.media,mx+(m.w-dw)/2,my+(m.h-dh)/2,dw,dh);
   }
-  else if(brand==="reddit"&&cfg.title){
-    let px=X0+bodyX;const pillH=fs*1.55,py=Y0+footTop-fs*0.1;
-    const pillBg=themeKey()==="dark"?"#272729":"#EDEFF1";
-    c.font="600 "+(fs*0.74)+"px "+SANS;
-    const cnt=gc("likes")||"Vote",vw=iS*2+c.measureText(cnt).width+fs*1.3;
-    c.fillStyle=pillBg;rr(c,px,py,vw,pillH,pillH/2);c.fill();
-    icon(c,"up",px+fs*0.4,py+pillH/2-iS*0.5,iS,pal.accent);
-    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText(cnt,px+fs*0.4+iS+fs*0.25,py+pillH/2);c.textBaseline="alphabetic";
-    icon(c,"down",px+vw-iS-fs*0.4,py+pillH/2-iS*0.5,iS,pal.sub);
+  c.restore();
+  if(!m.bleed){c.strokeStyle=L.pal.rule;c.lineWidth=Math.max(1,fs*0.02);rr(c,mx,my,m.w,m.h,radius);c.stroke();}
+}
+function body(c,L,X,Y,hp,x,top,weight){
+  paintBlock(c,{text:S.text,rs:S.ranges,lines:L.lines,x:X+x,y:Y+top,fs:L.bodyFs,lh:L.bodyLh,
+    face:SANS,ink:L.pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,hp,weight:weight||""});
+}
+
+/* ---- X / Twitter ---- */
+function paintX(c,L,hp){
+  const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
+  drawAvatar(c,X+pad,Y+L.headTop,av,L.avShape);
+  const hx=X+L.bodyX;
+  const base=Y+L.headTop+L.nameFs*1.02;          /* name sits at the top of the column */
+  const hcy=base-L.nameFs*0.32;                  /* trailing glyphs centre on the name line */
+  const dotsS=Math.round(fs*1.05),slashS=Math.round(fs*1.0);
+  const rightEdge=X+L.cardW-pad;
+  drawIcon(c,"dots",rightEdge-dotsS,hcy-dotsS/2,dotsS,pal.sub);
+  let resv=dotsS+fs*0.4;
+  if(S.xSlash){drawIcon(c,"slash",rightEdge-dotsS-fs*0.55-slashS,hcy-slashS/2,slashS,pal.sub);resv+=slashS+fs*0.55;}
+  const nameFont="700 "+L.nameFs+"px "+SANS,metaFont=L.metaFs+"px "+SANS;
+  const badgeW=S.badge!=="off"?L.nameFs*1.24:0;
+  const run=fitXHead(c,nameFont,S.name||"Name",metaFont," @"+(S.handle||"handle"),
+    S.time?" · "+S.time:"",rightEdge-resv-hx,badgeW);
+  c.font=nameFont;c.fillStyle=pal.ink;c.fillText(run.name,hx,base);
+  let cx=hx+run.nameW;
+  if(badgeW){const bs=L.nameFs*1.06;
+    drawIcon(c,"verified",cx+fs*0.12,base-bs*0.82,bs,S.badge==="gold"?"#E2B719":pal.badge);cx+=badgeW;}
+  c.font=metaFont;c.fillStyle=pal.sub;c.fillText(run.meta,cx,base);
+  if(L.cfg.reply){
+    const ry=Y+L.bodyTop-L.replyH+fs*1.0;
+    c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText("Replying to ",X+L.bodyX,ry);
+    const w=c.measureText("Replying to ").width;
+    c.fillStyle=pal.accent;
+    c.fillText(ellip(c,"@"+(S.sub||"user"),L.bodyW-w),X+L.bodyX+w,ry);
+  }
+  body(c,L,X,Y,hp,L.bodyX,L.bodyTop);
+  drawMedia(c,L,X,Y);
+  if(L.srcTop){c.font=L.srcFs+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText(ellip(c,"From "+S.mediaSrc,L.bodyW),X+L.bodyX,Y+L.srcTop+L.srcFs*0.85);}
+  /* action bar: 4 metric groups spread, bookmark + share pinned right.
+     Widths are measured so a count can never run into the next icon. */
+  const fy=Y+L.footTop+L.footH*0.5;
+  const items=[["xReply",gc("replies")],["xRetweet",gc("retweets")],
+               [S.likeOn?"xHeartOn":"xHeart",gc("likes"),S.likeOn?pal.like:null],["xViews",gc("views")]];
+  const usable=L.cardW-L.bodyX-pad;
+  let iS,cfs,gaps,widths;
+  for(let k=0;k<8;k++){                          /* shrink until the row fits */
+    iS=Math.round(fs*(1.0-k*0.06));cfs=Math.round(fs*(0.78-k*0.045));
+    c.font=cfs+"px "+SANS;
+    widths=items.map(it=>iS+(it[1]?fs*0.2+c.measureText(it[1]).width:0));
+    const tail=iS*2+fs*1.15;
+    gaps=(usable-widths.reduce((a,b)=>a+b,0)-tail)/4;
+    if(gaps>=fs*0.3)break;
+  }
+  gaps=Math.max(gaps,fs*0.12);
+  c.font=cfs+"px "+SANS;
+  let ix=X+L.bodyX;
+  items.forEach((it,i)=>{
+    const col=it[2]||pal.sub;
+    drawIcon(c,it[0],ix,fy-iS/2,iS,col);
+    if(it[1]){c.fillStyle=col;c.textBaseline="middle";
+      c.fillText(it[1],ix+iS+fs*0.2,fy+fs*0.02);c.textBaseline="alphabetic";}
+    ix+=widths[i]+gaps;
+  });
+  const shareX=X+L.cardW-pad-iS;
+  drawIcon(c,"xBookmark",shareX-iS-fs*1.15,fy-iS/2,iS,pal.sub);
+  drawIcon(c,"xShare",shareX,fy-iS/2,iS,pal.sub);
+}
+
+/* ---- Facebook post ---- */
+function paintFbPost(c,L,hp){
+  const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
+  drawAvatar(c,X+pad,Y+L.headTop,av);
+  const hx=X+L.headX,top=Y+L.headTop,right=X+L.cardW-pad;
+  const dotsS=Math.round(fs*1.05);
+  drawIcon(c,"dots",right-dotsS,top+av*0.28,dotsS,pal.sub);
+  /* line 1: name (+ badge) (+ · Follow) */
+  c.font="700 "+L.nameFs+"px "+SANS;
+  const badgeW=S.badge!=="off"?L.nameFs*1.2:0;
+  const followTxt=S.follow?" · Follow":"";
+  c.font="700 "+L.nameFs+"px "+SANS;const fw=followTxt?c.measureText(followTxt).width:0;
+  const nm=ellip(c,S.name||"Name",right-dotsS-fs*0.5-hx-badgeW-fw);
+  const b1=top+L.nameFs*1.02;
+  c.fillStyle=pal.ink;c.fillText(nm,hx,b1);
+  let cx=hx+c.measureText(nm).width;
+  if(badgeW){const bs=L.nameFs*1.0;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.82,bs,pal.badge);cx+=badgeW;}
+  if(followTxt){c.fillStyle=pal.accent;c.fillText(followTxt,cx,b1);}
+  /* line 2: time · globe */
+  const b2=top+av*0.82;
+  c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+  const tstr=(S.time||"2h")+" · ";c.fillText(tstr,hx,b2);
+  const gS=Math.round(L.metaFs*1.0);
+  drawIcon(c,"globe",hx+c.measureText(tstr).width,b2-gS*0.82,gS,pal.sub);
+  body(c,L,X,Y,hp,L.bodyX,L.bodyTop);
+  drawMedia(c,L,X,Y);
+  /* reaction counts */
+  const cy=Y+L.countsTop,tS=Math.round(fs*0.95);
+  c.font=L.countsFs+"px "+SANS;c.textBaseline="middle";
+  c.fillStyle=pal.accent;c.beginPath();c.arc(X+pad+tS*0.45,cy,tS*0.45,0,7);c.fill();
+  drawIcon(c,"fbThumb",X+pad+tS*0.16,cy-tS*0.29,tS*0.58,"#FFFFFF");
+  c.fillStyle=pal.sub;c.fillText(gc("likes"),X+pad+tS*1.15,cy);
+  const rTxt=gc("replies")+" comments   "+gc("retweets")+" shares";
+  c.textAlign="right";c.fillText(rTxt,X+L.cardW-pad,cy);c.textAlign="left";c.textBaseline="alphabetic";
+  /* divider + action row */
+  c.fillStyle=pal.rule;c.fillRect(X+pad,Y+L.ruleTop,L.cardW-pad*2,Math.max(1,fs*0.02));
+  const iS=Math.round(fs*1.35),ay=Y+L.actTop+L.actH*0.5,third=(L.cardW-pad*2)/3;
+  c.font="600 "+Math.round(fs*0.8)+"px "+SANS;
+  [["fbThumb","Like"],["fbComment","Comment"],["fbShare","Share"]].forEach((a,i)=>{
+    const mid=X+pad+third*i+third/2,lw=c.measureText(a[1]).width,tot=iS+fs*0.28+lw;
+    drawIcon(c,a[0],mid-tot/2,ay-iS/2,iS,pal.sub);
+    c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText(a[1],mid-tot/2+iS+fs*0.28,ay+fs*0.02);c.textBaseline="alphabetic";
+  });
+}
+
+/* ---- Facebook comment (plain text, reaction pill, thumbs right) ---- */
+function paintFbComment(c,L,hp){
+  const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
+  drawAvatar(c,X+pad,Y+L.headTop,av);
+  const hx=X+L.bodyX,top=Y+L.headTop;
+  const b1=top+L.nameFs*1.0;
+  c.font="700 "+L.nameFs+"px "+SANS;c.fillStyle=pal.ink;
+  const avail=L.bodyW;
+  const nm=ellip(c,S.name||"Name",avail*0.7);
+  c.fillText(nm,hx,b1);
+  let cx=hx+c.measureText(nm).width;
+  if(S.badge!=="off"){const bs=L.nameFs*0.95;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);cx+=bs+fs*0.12;}
+  c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;c.fillText(" · "+(S.time||"5d"),cx,b1);
+  body(c,L,X,Y,hp,L.bodyX,L.bodyTop);
+  /* Reply + reaction pill */
+  const ay=Y+L.actTop+L.actH*0.5;
+  c.font="600 "+Math.round(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;
+  c.textBaseline="middle";c.fillText("Reply",hx,ay);
+  const rw=c.measureText("Reply").width;
+  const tS=Math.round(fs*1.0),px=hx+rw+fs*1.5;
+  c.fillStyle=pal.accent;c.beginPath();c.arc(px+tS*0.5,ay,tS*0.5,0,7);c.fill();
+  drawIcon(c,"fbThumb",px+tS*0.18,ay-tS*0.32,tS*0.64,"#FFFFFF");
+  c.fillStyle=pal.sub;c.fillText(gc("likes"),px+tS*1.3,ay);
+  c.textBaseline="alphabetic";
+  /* thumb up then thumb down on the right */
+  const iS=Math.round(fs*1.15),right=X+L.cardW-pad;
+  drawIcon(c,"fbThumb",right-iS,ay-iS/2,iS,pal.sub,180);
+  drawIcon(c,"fbThumb",right-iS*2.6,ay-iS/2,iS,pal.sub);
+}
+
+/* ---- Instagram post ---- */
+function paintIgPost(c,L,hp){
+  const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
+  drawAvatar(c,X+pad,Y+L.headTop,av);
+  const hx=X+L.headX,top=Y+L.headTop,right=X+L.cardW-pad;
+  const menuS=Math.round(fs*1.15);
+  drawIcon(c,"igMenu",right-menuS,top+av*0.5-menuS/2,menuS,pal.ink);
+  /* Follow pill */
+  let fRight=right-menuS-fs*0.7;
+  if(S.follow){
+    c.font="700 "+Math.round(fs*0.82)+"px "+SANS;
+    const t="Follow",tw=c.measureText(t).width,bw=tw+fs*1.5,bh=Math.round(fs*1.5);
+    const bxp=fRight-bw,byp=top+av*0.5-bh/2;
+    c.fillStyle=themeKey()==="dark"?"#363636":"#EFEFEF";rr(c,bxp,byp,bw,bh,fs*0.35);c.fill();
+    c.fillStyle=pal.ink;c.textAlign="center";c.textBaseline="middle";
+    c.fillText(t,bxp+bw/2,byp+bh/2+fs*0.02);c.textAlign="left";c.textBaseline="alphabetic";
+    fRight=bxp-fs*0.5;
+  }
+  c.font="600 "+L.nameFs+"px "+SANS;c.fillStyle=pal.ink;
+  const un=ellip(c,S.handle||S.name||"username",fRight-hx);
+  const b1=top+L.nameFs*0.98;
+  c.fillText(un,hx,b1);
+  let cx=hx+c.measureText(un).width;
+  if(S.badge!=="off"){const bs=L.nameFs*0.9;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);}
+  if(S.audio){
+    const mS=Math.round(L.metaFs*0.95),b2=top+av*0.85;
+    drawIcon(c,"igMusic",hx,b2-mS*0.85,mS,pal.sub);
+    c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText(ellip(c," "+S.audio,fRight-hx-mS),hx+mS,b2);
+  }
+  drawMedia(c,L,X,Y);
+  /* action row */
+  const iS=L.actIS,ay=Y+L.actTop;
+  let ix=X+pad;
+  c.font=Math.round(fs*0.84)+"px "+SANS;c.textBaseline="middle";
+  const acts=[[S.likeOn?"xHeartOn":"igHeart","",S.likeOn?pal.like:null],["igComment",gc("replies")],["igReshare",gc("retweets")],["igSend",""]];
+  acts.forEach(a=>{
+    const col=a[2]||pal.ink;
+    drawIcon(c,a[0],ix,ay,iS,col);ix+=iS;
+    if(a[1]){c.fillStyle=pal.ink;c.fillText(a[1],ix+fs*0.22,ay+iS/2);ix+=c.measureText(a[1]).width+fs*0.22;}
+    ix+=fs*0.85;
+  });
+  drawIcon(c,"igBookmark",X+L.cardW-pad-iS,ay,iS,pal.ink);
+  c.textBaseline="alphabetic";
+  /* caption: bold username inline, text flows around it */
+  c.font="600 "+L.bodyFs+"px "+SANS;c.fillStyle=pal.ink;
+  c.fillText(L.capName,X+pad,Y+L.capTop+L.bodyFs*0.82);
+  paintBlock(c,{text:S.text,rs:S.ranges,lines:L.lines,x:X+L.bodyX,y:Y+L.capTop,
+    fs:L.bodyFs,lh:L.bodyLh,face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,
+    hp,indent:L.capIndent});
+  c.font=L.dateFs+"px "+SANS;c.fillStyle=pal.sub;
+  c.fillText(S.time||"July 13",X+pad,Y+L.dateTop+L.dateFs*0.85);
+}
+
+/* ---- Instagram comment ---- */
+function paintIgComment(c,L,hp){
+  const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
+  drawAvatar(c,X+pad,Y+L.headTop,av);
+  const hx=X+L.bodyX,top=Y+L.headTop,b1=top+L.nameFs*1.0;
+  c.font="600 "+L.nameFs+"px "+SANS;c.fillStyle=pal.ink;
+  const un=ellip(c,S.handle||S.name||"username",L.bodyW*0.66);
+  c.fillText(un,hx,b1);
+  let cx=hx+c.measureText(un).width;
+  if(S.badge!=="off"){const bs=L.nameFs*0.9;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);cx+=bs+fs*0.14;}
+  c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;c.fillText("  "+(S.time||"1w"),cx,b1);
+  body(c,L,X,Y,hp,L.bodyX,L.bodyTop);
+  c.font="500 "+Math.round(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;
+  c.textBaseline="middle";c.fillText("Reply",hx,Y+L.actTop+L.actH*0.5);c.textBaseline="alphabetic";
+  /* heart + count, right column */
+  const iS=Math.round(fs*1.1),hcx=X+L.cardW-pad-iS/2,hy=top+fs*0.15;
+  drawIcon(c,S.likeOn?"xHeartOn":"igHeart",hcx-iS/2,hy,iS,S.likeOn?pal.like:pal.sub);
+  if(S.likes){
+    c.font=Math.round(fs*0.72)+"px "+SANS;c.fillStyle=pal.sub;c.textAlign="center";
+    c.fillText(gc("likes"),hcx,hy+iS+fs*0.68);c.textAlign="left";
+  }
+}
+
+/* ---- Reddit + YouTube ---- */
+function paintRedditYt(c,L,hp){
+  const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av,V=L.V;
+  const top=Y+L.headTop,right=X+L.cardW-pad;
+  if(V==="rpost"){
+    c.save();avatarPath(c,X+pad,top,av);c.clip();
+    c.fillStyle="#FF4500";c.fillRect(X+pad,top,av,av);
+    if(S.avatar)c.drawImage(S.avatar,X+pad,top,av,av);c.restore();
+    const hx=X+L.headX,b=top+av*0.5+L.nameFs*0.34,dotsS=Math.round(fs*1.0);
+    drawIcon(c,"dots",right-dotsS,top+av*0.5-dotsS/2,dotsS,pal.sub);
+    c.font="700 "+L.nameFs+"px "+SANS;
+    const sr=ellip(c,"r/"+(S.sub||"subreddit"),(right-dotsS-fs*0.5-hx)*0.7);
+    c.fillStyle=pal.ink;c.fillText(sr,hx,b);
+    const w=c.measureText(sr).width;
+    c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText(ellip(c," · "+(S.time||"5h"),right-dotsS-fs*0.5-hx-w),hx+w,b);
+  }else{
+    drawAvatar(c,X+pad,top,av);
+    const hx=X+L.headX,b=top+L.nameFs*1.0;
+    c.font="600 "+L.nameFs+"px "+SANS;c.fillStyle=pal.ink;
+    const label=(V==="rcom")?("u/"+(S.handle||"user")):(S.name||"Name");
+    const nm=ellip(c,label,(right-hx)*0.62);
+    c.fillText(nm,hx,b);const w=c.measureText(nm).width;
+    c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText(ellip(c," · "+(S.time||"5h"),right-hx-w),hx+w,b);
+  }
+  body(c,L,X,Y,hp,L.bodyX,L.bodyTop,L.titleWeight);
+  drawMedia(c,L,X,Y);
+  const iS=Math.round(fs*1.05),fy=Y+L.footTop+L.footH*0.5;
+  if(V==="rpost"){
+    const pillH=Math.round(fs*1.65),py=fy-pillH/2;
+    const bg=themeKey()==="dark"?"#272729":"#EDEFF1";
+    c.font="600 "+Math.round(fs*0.76)+"px "+SANS;
+    let px=X+L.bodyX;
+    const pill=(w)=>{c.fillStyle=bg;rr(c,px,py,w,pillH,pillH/2);c.fill();};
+    const vc=gc("likes")||"Vote",vw=iS*2+c.measureText(vc).width+fs*1.4;
+    pill(vw);
+    drawIcon(c,"rUp",px+fs*0.4,fy-iS/2,iS,pal.accent);
+    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText(vc,px+fs*0.4+iS+fs*0.25,fy);c.textBaseline="alphabetic";
+    drawIcon(c,"rDown",px+vw-iS-fs*0.4,fy-iS/2,iS,pal.sub);
     px+=vw+fs*0.5;
-    const cc=gc("replies"),cw=iS+c.measureText(cc).width+fs*1.1;
-    c.fillStyle=pillBg;rr(c,px,py,cw,pillH,pillH/2);c.fill();
-    icon(c,"comment",px+fs*0.4,py+pillH/2-iS*0.5,iS,pal.sub);
-    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText(cc,px+fs*0.4+iS+fs*0.25,py+pillH/2);c.textBaseline="alphabetic";
+    const cc=gc("replies"),cw=iS+c.measureText(cc).width+fs*1.2;
+    pill(cw);drawIcon(c,"fbComment",px+fs*0.45,fy-iS/2,iS,pal.sub);
+    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText(cc,px+fs*0.45+iS+fs*0.28,fy);c.textBaseline="alphabetic";
     px+=cw+fs*0.5;
-    const sw=iS+c.measureText("Share").width+fs*1.1;
-    c.fillStyle=pillBg;rr(c,px,py,sw,pillH,pillH/2);c.fill();
-    icon(c,"share",px+fs*0.4,py+pillH/2-iS*0.5,iS,pal.sub);
-    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText("Share",px+fs*0.4+iS+fs*0.25,py+pillH/2);c.textBaseline="alphabetic";
+    const sw=iS+c.measureText("Share").width+fs*1.2;
+    pill(sw);drawIcon(c,"fbShare",px+fs*0.45,fy-iS/2,iS,pal.sub);
+    c.fillStyle=pal.ink;c.textBaseline="middle";c.fillText("Share",px+fs*0.45+iS+fs*0.28,fy);c.textBaseline="alphabetic";
+  }else if(V==="rcom"){
+    let ix=X+L.bodyX;
+    c.font="600 "+Math.round(fs*0.76)+"px "+SANS;c.textBaseline="middle";
+    drawIcon(c,"rUp",ix,fy-iS/2,iS,pal.sub);ix+=iS+fs*0.22;
+    c.fillStyle=pal.ink;c.fillText(gc("likes"),ix,fy);ix+=c.measureText(gc("likes")).width+fs*0.22;
+    drawIcon(c,"rDown",ix,fy-iS/2,iS,pal.sub);ix+=iS+fs*0.85;
+    drawIcon(c,"fbComment",ix,fy-iS/2,iS,pal.sub);ix+=iS+fs*0.28;
+    c.fillStyle=pal.sub;c.fillText("Reply",ix,fy);c.textBaseline="alphabetic";
+  }else{
+    let ix=X+L.bodyX;
+    c.font=Math.round(fs*0.76)+"px "+SANS;c.textBaseline="middle";
+    drawIcon(c,"ytThumb",ix,fy-iS/2,iS,pal.sub);ix+=iS+fs*0.22;
+    c.fillStyle=pal.sub;c.fillText(gc("likes"),ix,fy);ix+=c.measureText(gc("likes")).width+fs*0.8;
+    drawIcon(c,"ytThumb",ix,fy-iS/2,iS,pal.sub,180);ix+=iS+fs*0.9;
+    c.font="600 "+Math.round(fs*0.76)+"px "+SANS;c.fillStyle=pal.sub;c.fillText("Reply",ix,fy);
+    c.textBaseline="alphabetic";
   }
-  else if(brand==="reddit"){
-    let ix=X0+contentX;
-    icon(c,"up",ix,fy-iS*0.7,iS,pal.sub);ix+=iS+fs*0.2;
-    c.font="600 "+(fs*0.74)+"px "+SANS;c.fillStyle=pal.ink;c.textBaseline="middle";
-    c.fillText(gc("likes"),ix,fy);ix+=c.measureText(gc("likes")).width+fs*0.2;c.textBaseline="alphabetic";
-    icon(c,"down",ix,fy-iS*0.7,iS,pal.sub);ix+=iS+fs*0.8;
-    icon(c,"comment",ix,fy-iS*0.7,iS,pal.sub);ix+=iS+fs*0.25;
-    c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText("Reply",ix,fy);c.textBaseline="alphabetic";
-  }
-  else if(brand==="yt"){
-    let ix=X0+contentX;
-    icon(c,"thumb",ix,fy-iS*0.7,iS,pal.sub);ix+=iS+fs*0.2;
-    c.font=(fs*0.74)+"px "+SANS;c.fillStyle=pal.sub;c.textBaseline="middle";
-    c.fillText(gc("likes"),ix,fy);ix+=c.measureText(gc("likes")).width+fs*0.7;c.textBaseline="alphabetic";
-    iconRot(c,"thumb",ix,fy-iS*0.7,iS,pal.sub,180);ix+=iS+fs*0.9;
-    c.font="600 "+(fs*0.74)+"px "+SANS;c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText("Reply",ix,fy);c.textBaseline="alphabetic";
-  }
-  else if(brand==="fb"){
-    const cyc=Y0+footTop;
-    c.font=(fs*0.76)+"px "+SANS;
-    icon(c,"thumb",X0+pad,cyc-fs*0.05,fs*0.82,pal.accent);
-    c.fillStyle=pal.sub;c.textBaseline="middle";c.fillText(gc("likes"),X0+pad+fs*1.0,cyc+fs*0.3);
-    const rl=gc("replies")+" comments   "+gc("retweets")+" shares";
-    c.textAlign="right";c.fillText(rl,X0+cardW-pad,cyc+fs*0.3);c.textAlign="left";c.textBaseline="alphabetic";
-    c.fillStyle=pal.rule;c.fillRect(X0+pad,cyc+fs*0.85,cardW-pad*2,Math.max(1,fs*0.02));
-    const acts=[["thumb","Like"],["comment","Comment"],["share","Share"]],third=(cardW-pad*2)/3;
-    acts.forEach((a,i)=>{const cxc=X0+pad+third*i+third/2;
-      c.font="700 "+(fs*0.8)+"px "+SANS;c.fillStyle=pal.sub;
-      const lw=c.measureText(a[1]).width,tot=iS+fs*0.3+lw,sx=cxc-tot/2,ly=cyc+fs*1.55;
-      icon(c,a[0],sx,ly-iS*0.55,iS,pal.sub);
-      c.textBaseline="middle";c.fillText(a[1],sx+iS+fs*0.3,ly);c.textBaseline="alphabetic";});
-  }
-  else if(brand==="ig"){
-    c.font="600 "+(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;
-    c.fillText("Reply",X0+contentX,fy);
-  }
-}
-function paintFbComment(c,L,A){
-  const X0=L.x,Y0=L.y,fs=L.fs,pad=L.pad,av=L.av,bx=L.bx,bw=L.bw,innerPad=L.innerPad,nameH=L.nameH,
-    lines=L.lines,bodyFs=L.bodyFs,bodyLh=L.bodyLh,bubbleH=L.bubbleH,pal=L.pal;
-  const avX=X0+pad,avY=Y0+pad;
-  drawAvatar(c,avX,avY,av);
-  const BX=X0+bx,BY=Y0+pad;
-  c.fillStyle=themeKey()==="dark"?"#3A3B3C":"#F0F2F5";
-  rr(c,BX,BY,bw,bubbleH,fs*0.75);c.fill();
-  c.font="700 "+(fs*0.86)+"px "+SANS;c.fillStyle=pal.ink;
-  let nm=ellip(c,S.name||"Name",bw-innerPad*2-fs*1.2);
-  c.fillText(nm,BX+innerPad,BY+fs*0.98);
-  if(S.badge!=="off"){const bs=fs*0.66;badge(c,BX+innerPad+c.measureText(nm).width+fs*0.12,BY+fs*0.98-bs*0.9,bs,pal.badge);}
-  paintBlock(c,{text:S.text,rs:S.ranges,lines,x:BX+innerPad,y:BY+nameH,fs:bodyFs,lh:bodyLh,
-    face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,hp:A?A.hp:1});
-  const ay=BY+bubbleH+fs*1.0;
-  c.font="700 "+(fs*0.74)+"px "+SANS;c.fillStyle=pal.sub;
-  let tx=BX+innerPad;
-  ["Like","Reply","Share"].forEach(t=>{c.fillText(t,tx,ay);tx+=c.measureText(t).width+fs*0.9;});
-  c.font=(fs*0.74)+"px "+SANS;c.fillStyle=pal.sub;c.fillText(S.time||"1h",tx,ay);
 }
 /* ---------- layout dispatch + fitting ---------- */
 let layoutCache=null,layoutSig="";
 function sigOf(){
   return [S.design,S.text,JSON.stringify(S.ranges),S.theme,S.face,S.size,S.width,S.ypos,S.marks,S.header,
     S.outlet,S.url,S.hlStyle,S.crop,S.res,S.name,S.handle,S.badge,S.follow,S.sub,S.time,S.likes,S.retweets,S.replies,S.views,
-    S.avatar?S.avatar.src.length:0,S.media?(S.media.width+"x"+S.media.height):0].join("|");
+    S.avatar?S.avatar.src.length:0,S.media?(S.media.width+"x"+S.media.height):0,
+    S.avShape,S.xSlash,S.likeOn,S.audio,S.mediaSrc].join("|");
 }
 function computeLayout(c,fs){ return d().social?layoutSocial(c,fs):layoutQuote(c,fs); }
 function fitLayout(c){
@@ -1700,8 +1944,8 @@ function bindText(id,key,fmt){
   const el=$("#"+id);if(!el)return;
   el.addEventListener("input",e=>{S[key]=e.target.value;markFilled(el);invalidateLayout();scheduleDraw();});
 }
-["name","handle","sub","time"].forEach(id=>bindText(id,id));
-$("#follow").addEventListener("change",e=>{S.follow=e.target.checked;invalidateLayout();scheduleDraw();});
+["name","handle","sub","time","audio","mediaSrc"].forEach(id=>bindText(id,id));
+["follow","xSlash","likeOn"].forEach(id=>$("#"+id).addEventListener("change",e=>{S[id]=e.target.checked;invalidateLayout();scheduleDraw();}));
 
 /* metrics grid built dynamically per design */
 function buildMetrics(){
@@ -1782,7 +2026,7 @@ function updateFabLabel(){
   $("#fmtNote").textContent=FMT[S.format][1];
   $("#stillFmtCard").classList.toggle("hide",S.format!=="still");
 }
-["theme","face","hlStyle","crop","res","bg","fps","fadeEase","scaleEase","format","mode","imgFmt","badge"].forEach(g=>{
+["theme","face","hlStyle","crop","res","bg","fps","fadeEase","scaleEase","format","mode","imgFmt","badge","avShape"].forEach(g=>{
   $("#"+g).addEventListener("click",e=>{
     const b=e.target.closest("button");if(!b)return;
     [...e.currentTarget.querySelectorAll("button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
@@ -1796,7 +2040,7 @@ function updateFabLabel(){
       $("#tapBox").style.display=S.mode==="tap"?"":"none";
       wordSig=null;
     }
-    if(g==="theme"||g==="face"||g==="badge")invalidateLayout();
+    if(g==="theme"||g==="face"||g==="badge"||g==="avShape")invalidateLayout();
     scheduleDraw();
   });
 });
@@ -1856,14 +2100,20 @@ function applyDesign(){
     $("#handleLabel").textContent=(brand==="reddit")?"u/username":(brand==="yt")?"@channel":(brand==="ig")?"username":"@handle";
     /* badge only where platforms show one */
     $("#badgeRow").classList.toggle("hide",brand==="yt"||brand==="reddit");
-    $("#followRow").classList.toggle("hide",S.design!=="fb-post");
-    const showMedia=(S.design==="x-post"||S.design==="reddit-post"||S.design==="fb-post");
+    $("#avShapeRow").classList.toggle("hide",brand!=="x");
+    $("#followRow").classList.toggle("hide",!(S.design==="fb-post"||S.design==="ig-post"));
+    $("#slashRow").classList.toggle("hide",brand!=="x");
+    $("#audioRow").classList.toggle("hide",S.design!=="ig-post");
+    const showMedia=(S.design==="x-post"||S.design==="x-reply"||S.design==="reddit-post"||
+                     S.design==="fb-post"||S.design==="ig-post");
     $("#mediaDrop").classList.toggle("hide",!showMedia);
+    $("#mediaSrcRow").classList.toggle("hide",brand!=="x");
     buildMetrics();
     /* sync identity inputs + controls */
-    ["name","handle","sub","time"].forEach(id=>{const el=$("#"+id);if(el){el.value=S[id]||"";markFilled(el);}});
+    ["name","handle","sub","time","audio","mediaSrc"].forEach(id=>{const el=$("#"+id);if(el){el.value=S[id]||"";markFilled(el);}});
     [...$("#badge").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===S.badge));
-    $("#follow").checked=S.follow;
+    [...$("#avShape").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===S.avShape));
+    $("#follow").checked=S.follow;$("#xSlash").checked=S.xSlash;$("#likeOn").checked=S.likeOn;
   }
   invalidateLayout();updateFabLabel();scheduleDraw();
 }
