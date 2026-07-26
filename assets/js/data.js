@@ -111,8 +111,9 @@ export const METRICS={
 
 export const S={
   design:"quote",
-  text:"Rockstar says GTA 6 will not be delayed again, and the studio calls the new date final.",
-  ranges:[[24,45]],outlet:"",url:"",
+  text:"The odds of this happening are millions to one!",
+  ranges:[[31,47]],                          /* "millions to one!" */
+  outlet:"",url:"",
   theme:"paper",face:"sans",hlColor:"#FFA8C5",hlStyle:"marker",
   header:true,marks:false,width:75,size:42,ypos:0,guides:true,
   crop:"frame",res:"1",bg:"transparent",fps:"30",format:"still",imgFmt:"png",jq:92,exportName:"",
@@ -121,7 +122,7 @@ export const S={
   hlAnim:false,hlOffset:9,hlDur:12,
   mode:"type",view:"frame",
   /* social */
-  name:"Rockstar Games",handle:"RockstarGames",badge:"blue",follow:true,sub:"GamingLeaksAndRumours",time:"2h",
+  name:"EliteWoofle",handle:"EliteWoffle",badge:"blue",follow:true,sub:"GamingLeaksAndRumours",time:"2h",
   likes:"2.4K",retweets:"318",replies:"24",views:"98K",
   avatar:null,media:null,
   avShape:"circle",likeOn:false,audio:"",mediaSrc:"",
@@ -129,7 +130,7 @@ export const S={
   avatarScale:100,avatarX:0,avatarY:0,
   mediaScale:100,mediaX:0,mediaY:0,
   /* twitch */
-  nameColor:"#00C7AC",cheer:"off",subBadge:true,modBadge:false,
+  nameColor:"#00C7AC",cheer:"off",subBadge:true,modBadge:false,twReply:false,
   /* per-element visibility — anything false is simply not drawn, and the
      layout closes the gap so you get the space back */
   hidden:{},
@@ -139,20 +140,22 @@ export const S={
 /* Elements that can be switched off, per platform family.
    [key, label, applies-to test] */
 export const HIDEABLE=[
-  ["avatar",  "Profile picture", ()=>true],
-  ["name",    "Display name",    b=>b!=="reddit"],
-  ["handle",  "Username",        b=>b==="x"||b==="reddit"||b==="ig"],
+  ["avatar",  "Profile picture", b=>b!=="twitch"],   /* chat has none */
+  ["name",    "Display name",    b=>b!=="reddit"&&b!=="twitch"],
+  ["handle",  "Username",        b=>b==="x"||b==="reddit"||b==="ig"||b==="twitch"],
   ["badge",   "Verified tick",   b=>b==="x"||b==="fb"||b==="ig"],
+  ["badges",  "Chat badges",     b=>b==="twitch"],
   ["time",    "Timestamp",       ()=>true],
   ["menu",    "“…” menu",        b=>b==="x"||b==="fb"||b==="reddit"],
-  ["replies", "Replies",         ()=>true],
+  ["replies", "Replies",         b=>b!=="twitch"],
   ["retweets","Reposts / shares",b=>b==="x"||b==="fb"||b==="ig"],
-  ["likes",   "Likes / votes",   ()=>true],
+  ["likes",   "Likes / votes",   b=>b!=="twitch"],
   ["views",   "Views",           b=>b==="x"],
   ["bookmark","Bookmark + share",b=>b==="x"],
-  ["actions", "Action row",      b=>b==="fb"||b==="ig"||b==="yt"||b==="reddit"],
-  ["badges",  "Chat badges",     b=>b==="twitch"]
+  ["actions", "Action row",      b=>b==="fb"||b==="ig"||b==="yt"||b==="reddit"]
 ];
+/* does this design have any engagement numbers at all? */
+export function hasCounts(brand){return brand&&brand!=="twitch";}
 /* is an element visible? */
 export function V_ON(key){return !S.hidden[key];}
 
@@ -164,13 +167,14 @@ export const RELEVANT={
   nameRow:     x=>x.social&&x.brand!=="reddit"&&x.brand!=="twitch",
   handleRow:   x=>x.social&&x.brand!=="fb",         /* facebook shows a display name only */
   twitchCard:  x=>x.brand==="twitch",
-  subRow:      x=>x.brand==="reddit"||x.id==="x-reply"||x.brand==="twitch",
+  twReplyRow:  x=>x.brand==="twitch",
+  countsRow:   x=>x.social&&hasCounts(x.brand),   /* nothing to blank otherwise */
+  subRow:      x=>x.brand==="reddit"||x.id==="x-reply"||(x.brand==="twitch"&&S.twReply),
   audioRow:    x=>x.id==="ig-post",
   badgeRow:    x=>x.social&&x.brand!=="yt"&&x.brand!=="reddit"&&x.brand!=="twitch",
   avShapeRow:  x=>x.brand==="x",
   followRow:   x=>x.id==="fb-post"||x.id==="ig-post",
   likeRow:     x=>x.brand==="x"||x.brand==="ig",    /* only these fill on like */
-  avatarFrameGate: x=>false,
   avatarDrop:  x=>x.social&&x.brand!=="twitch",   /* chat has no inline avatars */
   /* --- media --- */
   mediaDrop:   x=>["x-post","x-reply","reddit-post","fb-post","ig-post"].indexOf(x.id)>=0,

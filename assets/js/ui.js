@@ -27,7 +27,7 @@ function toggleToken(s,e,force){
   const on=covered(S.ranges,s,e),want=force===undefined?!on:force;
   if(want===on)return false;
   S.ranges=want?bridge(S.ranges.concat([[s,e]])):trimEdges(subtract(S.ranges,s,e));
-  invalidateLayout();return true;
+  syncMirror();invalidateLayout();return true;
 }
 (function(){
   const box=$("#words");let down=false,mode2,sx=0,sy=0,armed=false;
@@ -114,24 +114,42 @@ urlEl.addEventListener("input",e=>{S.url=e.target.value;R.urlAuto=false;markFill
 export const ta=$("#text");ta.value=S.text;
 export function markFilled(el){el.classList.toggle("filled",!!el.value);}
 export function autogrow(el){el.style.height="auto";el.style.height=Math.min(el.scrollHeight,210)+"px";}
+/* Paint the highlighted ranges into the mirror layer behind the textarea, so the
+   field shows what is marked without competing with the card's marker colour. */
+const mirror=$("#textMirror");
+const esc=t=>t.replace(/[&<>]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[ch]));
+export function syncMirror(){
+  const t=S.text,rs=S.ranges;
+  let html="",at=0;
+  for(const [a,b] of rs){
+    if(a>at)html+=esc(t.slice(at,a));
+    html+="<mark>"+esc(t.slice(a,b))+"</mark>";
+    at=b;
+  }
+  html+=esc(t.slice(at));
+  /* a trailing newline needs a filler or the last line collapses */
+  mirror.innerHTML=html+"\n";
+  mirror.scrollTop=ta.scrollTop;
+}
+ta.addEventListener("scroll",()=>{mirror.scrollTop=ta.scrollTop;});
 let lastSel=[0,0];
 const capSel=()=>{if(document.activeElement===ta)lastSel=[ta.selectionStart,ta.selectionEnd];};
 ["keyup","mouseup","touchend","select"].forEach(ev=>ta.addEventListener(ev,capSel));
 document.addEventListener("selectionchange",capSel);
 ta.addEventListener("input",()=>{
   const rs=remap(R.lastText,ta.value,S.ranges);
-  S.text=ta.value;R.lastText=ta.value;setRanges(rs);markFilled(ta);autogrow(ta);invalidateLayout();scheduleDraw();
+  S.text=ta.value;R.lastText=ta.value;setRanges(rs);markFilled(ta);autogrow(ta);syncMirror();invalidateLayout();scheduleDraw();
 });
 function toggleHL(){
   let [s,e]=[ta.selectionStart,ta.selectionEnd];
   if(s===e)[s,e]=lastSel;
   if(s===e){snack("Select some words first.");return;}
   S.ranges=covered(S.ranges,s,e)?trimEdges(subtract(S.ranges,s,e)):bridge(S.ranges.concat([[s,e]]));
-  invalidateLayout();scheduleDraw();
+  syncMirror();invalidateLayout();scheduleDraw();
 }
 $("#hlBtn").addEventListener("click",toggleHL);
-$("#clearBtn").addEventListener("click",()=>{S.ranges=[];invalidateLayout();scheduleDraw();});
-$("#clearBtn2").addEventListener("click",()=>{S.ranges=[];invalidateLayout();scheduleDraw();});
+$("#clearBtn").addEventListener("click",()=>{S.ranges=[];syncMirror();invalidateLayout();scheduleDraw();});
+$("#clearBtn2").addEventListener("click",()=>{S.ranges=[];syncMirror();invalidateLayout();scheduleDraw();});
 document.addEventListener("keydown",e=>{
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="h"){e.preventDefault();toggleHL();}
   if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){e.preventDefault();$("#dl").click();}
@@ -150,6 +168,11 @@ function bindText(id,key,fmt){
 }
 ["name","handle","sub","time","audio","mediaSrc"].forEach(id=>bindText(id,id));
 ["follow","likeOn"].forEach(id=>$("#"+id).addEventListener("change",e=>{S[id]=e.target.checked;invalidateLayout();scheduleDraw();}));
+$("#twReply").addEventListener("change",e=>{
+  S.twReply=e.target.checked;
+  applyRelevance();                 /* the "replying to" field follows this */
+  invalidateLayout();scheduleDraw();
+});
 
 /* metrics grid built dynamically per design */
 function buildMetrics(){
@@ -313,11 +336,7 @@ export function updateFabLabel(){
     if(g==="imgFmt"){$("#jpegQ").classList.toggle("hide",S.imgFmt!=="jpeg");updateFabLabel();}
     if(g==="scaleEase"){$("#customRow").classList.toggle("hide",S.scaleEase!=="custom");$("#overLab").textContent=(S.scaleEase==="spring")?"Bounciness":"Overshoot";drawCurve();}
     if(g==="fadeEase")drawCurve();
-    if(g==="mode"){
-      $("#typeBox").style.display=S.mode==="type"?"":"none";
-      $("#tapBox").style.display=S.mode==="tap"?"":"none";
-      R.wordSig=null;
-    }
+    if(g==="mode"){R.wordSig=null;applyModeForDevice();}
     if(g==="theme"||g==="face"||g==="badge"||g==="avShape")invalidateLayout();
     scheduleDraw();
   });
@@ -371,10 +390,25 @@ function applyRelevance(){
     el.classList.toggle("hide",!RELEVANT[key](ctx));
   }
 }
+/* On a phone, tapping words is the natural gesture and text selection inside a
+   textarea is fiddly, so tap mode is forced and the mode switch is hidden. */
+export function applyModeForDevice(){
+  if(isPhone()){
+    if(S.mode!=="tap"){S.mode="tap";R.wordSig=null;}
+    $("#modeRow").classList.add("hide");
+  }else{
+    $("#modeRow").classList.remove("hide");
+  }
+  $("#mode").querySelectorAll("button").forEach(b=>
+    b.setAttribute("aria-pressed",String(b.dataset.v===S.mode)));
+  $("#typeBox").style.display=S.mode==="type"?"":"none";
+  $("#tapBox").style.display=S.mode==="tap"?"":"none";
+}
 export function applyDesign(){
   const P=d();
   const social=P.social;
   applyRelevance();
+  applyModeForDevice();
   $("#themeLab").textContent=social?"Appearance":"Theme";
   /* theme options: social cards are only ever light or dark */
   const themeBtns=[...$("#theme").querySelectorAll("button")];
@@ -391,6 +425,7 @@ export function applyDesign(){
     $("#handleLabel").textContent=(brand==="reddit")?"u/username":(brand==="yt")?"@channel":(brand==="ig")?"username":"@handle";
     buildMetrics();buildShowChips();
     if(brand==="twitch")syncTwitch();
+    $("#twReply").checked=!!S.twReply;
     /* push state into the identity controls */
     ["name","handle","sub","time","audio","mediaSrc"].forEach(id=>{const el=$("#"+id);if(el)el.value=S[id]||"";});
     $("#badge").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===S.badge)));
