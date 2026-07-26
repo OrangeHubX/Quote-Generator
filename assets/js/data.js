@@ -120,9 +120,9 @@ export const S={
   anim:true,dur:15,fadeEase:"inout",scaleEase:"back",sFrom:88,over:17,drift:0,hold:6,
   bezier:[.34,1.56,.64,1],
   hlAnim:false,hlOffset:9,hlDur:12,
-  mode:"type",view:"frame",
+  view:"frame",
   /* social */
-  name:"EliteWoofle",handle:"EliteWoffle",badge:"blue",follow:true,sub:"GamingLeaksAndRumours",time:"2h",
+  name:"EliteWoofle",handle:"EliteWoffle",badge:"blue",sub:"GamingLeaksAndRumours",time:"2h",
   likes:"2.4K",retweets:"318",replies:"24",views:"98K",
   avatar:null,media:null,
   avShape:"circle",likeOn:false,audio:"",mediaSrc:"",
@@ -139,12 +139,13 @@ export const S={
 
 /* Elements that can be switched off, per platform family.
    [key, label, applies-to test] */
+/* Each test gets (brand, designId) — some elements belong to a whole platform,
+   others only to its post form. */
 export const HIDEABLE=[
   ["avatar",  "Profile picture", b=>b!=="twitch"],   /* chat has none */
   ["name",    "Display name",    b=>b!=="reddit"&&b!=="twitch"],
   ["handle",  "Username",        b=>b==="x"||b==="reddit"||b==="ig"||b==="twitch"],
   ["badge",   "Verified tick",   b=>b==="x"||b==="fb"||b==="ig"],
-  ["badges",  "Chat badges",     b=>b==="twitch"],
   ["time",    "Timestamp",       ()=>true],
   ["menu",    "“…” menu",        b=>b==="x"||b==="fb"||b==="reddit"],
   ["replies", "Replies",         b=>b!=="twitch"],
@@ -152,8 +153,16 @@ export const HIDEABLE=[
   ["likes",   "Likes / votes",   b=>b!=="twitch"],
   ["views",   "Views",           b=>b==="x"],
   ["bookmark","Bookmark + share",b=>b==="x"],
-  ["actions", "Action row",      b=>b==="fb"||b==="ig"||b==="yt"||b==="reddit"]
+  ["actions", "Action row",      b=>b==="fb"||b==="ig"||b==="yt"||b==="reddit"],
+  ["follow",  "“Follow” button", (b,id)=>id==="fb-post"||id==="ig-post"]
 ];
+/* Which hideable elements own a control row — their eye lives on that row rather
+   than in a list that could disagree with it. Engagement fields carry their own
+   eye, built with the grid. */
+export const EYE_ROW={avatar:"avatarDrop",name:"nameRow",handle:"handleRow",
+  time:"timeRow",badge:"badgeRow"};
+export const EYE_OWNED={avatar:1,name:1,handle:1,time:1,badge:1,
+  replies:1,retweets:1,likes:1,views:1};
 /* does this design have any engagement numbers at all? */
 export function hasCounts(brand){return brand&&brand!=="twitch";}
 /* is an element visible? */
@@ -168,18 +177,18 @@ export const RELEVANT={
   handleRow:   x=>x.social&&x.brand!=="fb",         /* facebook shows a display name only */
   twitchCard:  x=>x.brand==="twitch",
   twReplyRow:  x=>x.brand==="twitch",
-  countsRow:   x=>x.social&&hasCounts(x.brand),   /* nothing to blank otherwise */
   subRow:      x=>x.brand==="reddit"||x.id==="x-reply"||(x.brand==="twitch"&&S.twReply),
   audioRow:    x=>x.id==="ig-post",
   badgeRow:    x=>x.social&&x.brand!=="yt"&&x.brand!=="reddit"&&x.brand!=="twitch",
-  avShapeRow:  x=>x.brand==="x",
-  followRow:   x=>x.id==="fb-post"||x.id==="ig-post",
+  avShapeRow:  x=>x.brand==="x"&&V_ON("avatar"),   /* nothing to shape if hidden */
+  nameColorRow:x=>x.brand==="twitch",
   likeRow:     x=>x.brand==="x"||x.brand==="ig",    /* only these fill on like */
   avatarDrop:  x=>x.social&&x.brand!=="twitch",   /* chat has no inline avatars */
+  timeRow:     x=>x.social,
   /* --- media --- */
-  mediaDrop:   x=>["x-post","x-reply","reddit-post","fb-post","ig-post"].indexOf(x.id)>=0,
+  mediaCard:   x=>["x-post","x-reply","reddit-post","fb-post","ig-post"].indexOf(x.id)>=0,
   mediaSrcRow: x=>x.brand==="x",                    /* only X draws "From <source>" */
-  avatarFrame: x=>x.social&&!!S.avatar,             /* no point until there is an image */
+  avatarFrame: x=>x.social&&!!S.avatar&&V_ON("avatar"),  /* nothing to frame if hidden */
   mediaFrame:  x=>!!S.media&&["x-post","x-reply","reddit-post","fb-post","ig-post"].indexOf(x.id)>=0,
   /* --- quote-only --- */
   sourceCard:  x=>!x.social,
@@ -188,15 +197,24 @@ export const RELEVANT={
   marksRow:    x=>!x.social,
   /* --- social-only --- */
   socialCard:  x=>x.social,
-  metricsCard: x=>x.social&&x.brand!=="twitch",
-  showCard:    x=>x.social,
+  /* blanking the numbers leaves nothing to type into, so the section goes too */
+  engageCard:  x=>x.social&&hasCounts(x.brand)&&!S.hideCounts,
+  showRow:     x=>x.social,
+  countsRow:   x=>x.social&&hasCounts(x.brand),   /* nothing to blank otherwise */
   /* --- motion: pointless unless something animates --- */
-  timingCap:   x=>S.anim||S.hlAnim,
   durRow:      x=>S.anim,
   holdRow:     x=>S.anim||S.hlAnim,
-  curvesGroup: x=>S.anim,
+  motionRow:   x=>S.anim,
+  curveInfo:   x=>S.anim||S.hlAnim,
+  motionAdv:   x=>S.anim,                          /* nothing to shape otherwise */
+  customRow:   x=>S.anim&&S.scaleEase==="custom",
+  sFromRow:    x=>S.anim&&S.scaleEase!=="none",    /* no scale, nothing to scale from */
+  overRow:     x=>S.anim&&(S.scaleEase==="back"||S.scaleEase==="spring"),
+  hlAnimRow:   x=>S.hlAnim,
   /* --- export --- */
-  fpsRow:      x=>S.format!=="still"                /* a still has no frame rate */
+  fpsRow:      x=>S.format!=="still",              /* a still has no frame rate */
+  stillFmtCard:x=>S.format==="still",              /* frames/webm/gif pick their own codec */
+  jpegQ:       x=>S.format==="still"&&S.imgFmt==="jpeg"
 };
 
 export const $=s=>document.querySelector(s);
@@ -207,6 +225,7 @@ export const R={
   lastText:S.text,   /* last committed textarea value, for range remapping */
   playing:false,     /* preview loop running */
   playT0:0,          /* preview loop start time */
+  frame:1e9,         /* playhead; clamped to the last frame on the first draw */
   editing:false,     /* a text field has focus */
   viewPinned:false,  /* user chose the fit mode explicitly */
   urlAuto:true,      /* URL field still auto-filled from the outlet */
@@ -215,6 +234,9 @@ export const R={
 export const isPhone=()=>window.matchMedia("(max-width:900px)").matches;
 export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function d(){return DESIGNS[S.design];}
+/* look up any design, not just the active one — batch rows describe cards that
+   are not currently loaded */
+export function designOf(id){return DESIGNS[id]||DESIGNS.quote;}
 export function themeKey(){return S.theme==="dark"?"dark":"light";}
 export function brandPal(){return BRAND[d().brand][themeKey()];}
 

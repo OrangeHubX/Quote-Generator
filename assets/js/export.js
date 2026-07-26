@@ -1,12 +1,12 @@
 /* export.js — Zip writer, GIF encoder and the still/sequence/video export paths. */
 import {$, FH, FW, S, d} from './data.js';
-import {animAt, animEndSec, fitLayout, paint, totalFrames} from './layout.js';
+import {animAt, animEndSec, fitLayout, frameSecs, paint} from './layout.js';
 
 /* ---------- zip ---------- */
 const CRC=(()=>{const t=new Uint32Array(256);
   for(let i=0;i<256;i++){let c=i;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[i]=c>>>0;}return t;})();
 function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
-function makeZip(files){
+export function makeZip(files){
   const enc=new TextEncoder(),parts=[],cd=[],now=new Date();
   const tm=((now.getHours()<<11)|(now.getMinutes()<<5)|Math.floor(now.getSeconds()/2))&0xFFFF;
   const dt=(((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate())&0xFFFF;
@@ -103,7 +103,7 @@ function encodeGif(frames,w,h,delayCs){
 }
 
 /* ---------- export ---------- */
-function makeCanvas(L,k){
+export function makeCanvas(L,k){
   const out=document.createElement("canvas");
   if(S.crop==="card"){
     const m=Math.round(L.fs*1.35);
@@ -112,12 +112,12 @@ function makeCanvas(L,k){
   }else{out.width=FW*k;out.height=FH*k;out._tx=0;out._ty=0;}
   return out;
 }
-function saveBlob(b,name){
+export function saveBlob(b,name){
   const u=URL.createObjectURL(b),a=document.createElement("a");
   a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(u),8000);
 }
-function baseName(){
+export function baseName(){
   const custom=(S.exportName||"").trim();
   if(custom)return custom.replace(/[^a-z0-9\-_ ]/gi,"").replace(/\s+/g,"-").toLowerCase()||"slate";
   const src=d().social?(S.name+" "+S.text):S.text;
@@ -127,8 +127,8 @@ export function snack(m,keep){
   const t=$("#snack");t.textContent=m;t.classList.add("on");
   clearTimeout(snack._t);if(!keep)snack._t=setTimeout(()=>t.classList.remove("on"),3200);
 }
-function stillMime(){return S.imgFmt==="jpeg"?"image/jpeg":"image/png";}
-function stillExt(){return S.imgFmt==="jpeg"?".jpg":".png";}
+export function stillMime(){return S.imgFmt==="jpeg"?"image/jpeg":"image/png";}
+export function stillExt(){return S.imgFmt==="jpeg"?".jpg":".png";}
 async function exportStill(){
   const k=parseFloat(S.res),L=fitLayout(document.createElement("canvas").getContext("2d"));
   const out=makeCanvas(L,k);
@@ -137,11 +137,6 @@ async function exportStill(){
   const b=await new Promise(r=>out.toBlob(r,stillMime(),S.jq/100));
   if(!b){snack("Export failed.");return;}
   saveBlob(b,baseName()+stillExt());snack("Saved "+out.width+"×"+out.height+" "+S.imgFmt.toUpperCase());
-}
-function frameSecs(){
-  const fps=+S.fps,n=totalFrames(),end=animEndSec(),af=Math.max(1,Math.round(end*fps));
-  const secs=[];for(let i=0;i<n;i++)secs.push(i<af?(i/fps):end+ (i-af+1)/fps);
-  return {fps,n,secs};
 }
 async function exportSeq(){
   const k=parseFloat(S.res),L=fitLayout(document.createElement("canvas").getContext("2d"));
