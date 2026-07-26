@@ -160,15 +160,12 @@ function drawModBadge(c,x,y,s){
 /* total width of the badge run, so the first text line can be indented past it */
 function badgesWidth(bs,gap){
   let n=0;
-  if(V_ON("badges")){
-    if(S.cheer&&S.cheer!=="off")n++;
-    if(S.subBadge)n++;
-    if(S.modBadge)n++;
-  }
+  if(S.cheer&&S.cheer!=="off")n++;
+  if(S.subBadge)n++;
+  if(S.modBadge)n++;
   return n?n*(bs+gap):0;
 }
 function drawBadges(c,x,y,bs,gap){
-  if(!V_ON("badges"))return 0;
   let bx=x;
   if(S.modBadge){drawModBadge(c,bx,y,bs);bx+=bs+gap;}
   if(S.subBadge){drawSubBadge(c,bx,y,bs);bx+=bs+gap;}
@@ -457,7 +454,7 @@ function paintFbPost(c,L,hp){
   /* line 1: name (+ badge) (+ · Follow) */
   c.font="700 "+L.nameFs+"px "+SANS;
   const badgeW=(S.badge!=="off"&&V_ON("badge"))?L.nameFs*1.2:0;
-  const followTxt=S.follow?" · Follow":"";
+  const followTxt=V_ON("follow")?" · Follow":"";
   c.font="700 "+L.nameFs+"px "+SANS;const fw=followTxt?c.measureText(followTxt).width:0;
   const nm=V_ON("name")?ellip(c,S.name||"Name",right-dotsS-fs*0.5-hx-badgeW-fw):"";
   const b1=top+L.nameFs*1.02;
@@ -545,7 +542,7 @@ function paintIgPost(c,L,hp){
   if(V_ON("menu"))drawIcon(c,"igMenu",right-menuS,top+av*0.5-menuS/2,menuS,pal.ink);
   /* Follow pill */
   let fRight=right-menuS-fs*0.7;
-  if(S.follow){
+  if(V_ON("follow")){
     c.font="700 "+Math.round(fs*0.82)+"px "+SANS;
     const t="Follow",tw=c.measureText(t).width,bw=tw+fs*1.5,bh=Math.round(fs*1.5);
     const bxp=fRight-bw,byp=top+av*0.5-bh/2;

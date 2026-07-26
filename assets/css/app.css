@@ -113,6 +113,42 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .fld .num{text-align:right}
 .fld i{font-family:var(--mono);font-size:10.5px;color:var(--fg-3);font-style:normal;flex:none;width:9px}
 .row>label,.row>.rl{font-size:11.5px;color:var(--fg-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---- per-element visibility eye ----
+   Lives on the row it governs. The row stays and its control stays editable when
+   hidden — dimmed rather than removed, so you can fill a field in before showing
+   it and the state is never ambiguous. */
+.row.hasEye{grid-template-columns:var(--lab) 1fr auto}
+.row.sl.hasEye{grid-template-columns:var(--lab) 1fr 46px 20px auto}
+.eye{flex:none;width:26px;height:26px;padding:0;border:0;border-radius:5px;cursor:pointer;
+  background:none;color:var(--fg-3);display:grid;place-items:center}
+.eye svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.eye:hover{background:var(--input-hi);color:var(--fg)}
+.eye[aria-pressed=true]{color:var(--acc)}
+.row[data-off=true]>label,.row[data-off=true]>.rl,
+.drop[data-off=true] .lb{opacity:.42}
+.row[data-off=true] .txt,.row[data-off=true] .seg,
+.drop[data-off=true] .th{opacity:.42}
+.drop[data-off=true]{border-style:solid}
+
+/* a once-per-image or once-per-look group, folded away by default */
+.fold{margin:0}
+.fold>summary{list-style:none;cursor:pointer;font-size:11px;color:var(--acc);
+  padding:5px 14px;border-radius:4px;display:inline-flex;align-items:center;gap:5px;
+  margin:0 0 0 calc(var(--lab) + 14px - 14px)}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::before{content:"";width:0;height:0;flex:none;
+  border-left:4px solid currentColor;border-top:3.5px solid transparent;
+  border-bottom:3.5px solid transparent;transition:transform .14s var(--e-out)}
+.fold[open]>summary::before{transform:rotate(90deg) translateX(1px)}
+.fold>summary:hover{background:var(--acc-soft)}
+/* a whole section rather than a sub-group: the summary reads as a caption */
+.fold.sec>summary{margin:18px 14px 8px;padding:0;font-size:10px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--fg-3);gap:7px}
+.fold.sec>summary::after{content:"";flex:1;height:1px;background:var(--line)}
+.fold.sec>summary:hover{background:none;color:var(--acc)}
+.fold.sec[open]>summary{color:var(--acc)}
 .row.stack{display:block;padding:3px 12px}
 .row.stack>label{display:block;margin-bottom:5px}
 .note{font-size:11px;color:var(--fg-3);padding:4px 12px 2px;line-height:1.45}
@@ -243,9 +279,12 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .drop .x:hover{color:var(--warn)}
 
 /* word chips */
+/* Sits under the text field rather than replacing it, so it stays compact — it is
+   the highlight surface, not the text surface. */
 .words{display:flex;flex-wrap:wrap;gap:5px;touch-action:pan-y;user-select:none;-webkit-user-select:none;
-  background:var(--input);border:1px solid var(--line);border-radius:var(--r);padding:8px;
-  min-height:84px;max-height:196px;overflow-y:auto;align-content:flex-start;margin:3px 12px}
+  background:var(--input);border:1px solid var(--line);border-radius:var(--r);padding:7px;
+  min-height:38px;max-height:150px;overflow-y:auto;align-content:flex-start;margin:5px 14px 2px}
+.words:empty{display:none}
 .w{font-size:12.5px;background:var(--input-hi);border:1px solid var(--line-2);color:var(--fg);
   border-radius:4px;padding:4px 7px;cursor:pointer;line-height:1.15;touch-action:pan-y;
   max-width:100%;overflow-wrap:anywhere;text-align:left}
@@ -289,10 +328,31 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .combo-th{flex:none;width:42px;height:24px;display:block;border-radius:4px;background:var(--bg)}
 .combo-opt .combo-th{background:rgba(0,0,0,.35)}
 .combo-opt .rm{margin-left:auto;flex:none;background:none;border:0;color:var(--fg-3);
-  font-size:13px;line-height:1;padding:2px 4px;border-radius:4px;cursor:pointer;opacity:0}
-.combo-opt:hover .rm,.combo-opt:focus-within .rm{opacity:1}
+  font-size:13px;line-height:1;padding:2px 4px;border-radius:4px;cursor:pointer;
+  /* opacity alone still swallows the click that was meant for the row */
+  opacity:0;pointer-events:none}
+.combo-opt:hover .rm,.combo-opt:focus-within .rm{opacity:1;pointer-events:auto}
 .combo-opt .rm:hover{color:var(--warn);background:var(--line)}
 .txt.sm{height:26px;font-size:11px;padding:0 7px}
+/* the look picker shares the header with the card-type picker */
+.combo.narrow{flex:0 0 132px}
+#presetVal.dim{color:var(--fg-3);font-weight:500}
+.combo-empty{font-size:11px;color:var(--fg-3);padding:8px 9px}
+.combo-opt .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.combo-opt .th{flex:none;width:26px;height:26px;border-radius:4px;border:1px solid var(--line);
+  background-image:var(--th,none),conic-gradient(#22242B 25%,#191B21 0 50%,#22242B 0 75%,#191B21 0);
+  background-size:contain,6px 6px;background-position:center,0 0;background-repeat:no-repeat,repeat}
+.combo-opt .rm.up{font-size:10px;letter-spacing:.03em;padding:3px 5px}
+.combo-opt .rm+.rm{margin-left:0}
+.combo-opt.add{color:var(--acc);font-weight:600;border-top:1px solid var(--line);
+  margin-top:4px;padding-top:9px;border-radius:0 0 5px 5px}
+/* the folded section states its own answer in the summary */
+.fold.sec>summary .sum{font-family:var(--mono);font-size:10px;font-weight:500;
+  letter-spacing:0;text-transform:none;color:var(--fg-2)}
+/* a row whose control is a field plus a square action */
+.row:has(>.txt+.btn.sq){grid-template-columns:var(--lab) 1fr auto}
+#tokenHelp{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--fg-3)}
+#tokenHelp:hover{color:var(--acc)}
 
 /* ---- cheer badge picker ---- */
 .cheerpick{position:relative;flex:1;min-width:0}

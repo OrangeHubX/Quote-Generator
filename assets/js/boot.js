@@ -10,8 +10,8 @@ import {draw} from './curve.js';
 import {initGraph, setEaseHook} from './graph.js';
 import {clampFrame, initTimeline} from './timeline.js';
 import {initHistory, redo, undo} from './history.js';
-import {applyDesign, applyModeForDevice, autogrow, markFilled, setHl, syncMirror, ta, updateFabLabel} from './ui.js';
-import {buildShowChips, initEasePickers, loadPresets, renderPresets, syncAllControls, syncBezBtn, syncDesignBtn, syncEaseBtn} from './panels.js';
+import {applyDesign, autogrow, buildEyes, markFilled, setHl, syncGuides, syncHints, syncMirror, ta, updateFabLabel} from './ui.js';
+import {buildShowChips, initEasePickers, initPresetPicker, loadPresets, syncAllControls, syncBezBtn, syncCounts, syncDesignBtn, syncEaseBtn} from './panels.js';
 import {allBez} from './graph.js';
 import {applySheet, initSheet} from './sheet.js';
 import {exportBatch, initBatch, queueLength} from './batch.js';
@@ -29,10 +29,13 @@ setEaseHook(()=>{syncEaseBtn();applyDesign();});
 initGraph();
 initTimeline();
 buildShowChips();
-renderPresets();
+buildEyes();
+syncCounts();
+syncGuides();
+syncHints();
+initPresetPicker();
 initBatch();
 applyDesign();
-applyModeForDevice();
 syncVH();
 initSheet();
 clampFrame();
@@ -46,11 +49,11 @@ initHistory(syncAllControls);
 window.QS={S,R,V_ON,draw,scheduleDraw,invalidateLayout,applyDesign,allBez,loadPresets,
   applySheet,syncBezBtn,undo,redo,exportBatch,queueLength};
 
-/* the mode switch depends on the breakpoint, so revisit it on resize */
+/* the layout differs across the breakpoint, so re-fit when it is crossed */
 let wasPhone=window.matchMedia("(max-width:900px)").matches;
 window.addEventListener("resize",()=>{
   const now=window.matchMedia("(max-width:900px)").matches;
-  if(now!==wasPhone){wasPhone=now;applyModeForDevice();draw();}
+  if(now!==wasPhone){wasPhone=now;draw();}
 });
 
 /* fonts and scrollbars can settle a frame late; re-fit once */

@@ -1,10 +1,10 @@
 /* panels.js — Design combobox, element visibility chips and saved presets. */
-import {$, CHEER, HIDEABLE, R, S, TWITCH_NAMES, clamp, d} from './data.js';
+import {$, CHEER, EYE_OWNED, HIDEABLE, R, S, TWITCH_NAMES, clamp, d} from './data.js';
 import {scheduleDraw} from './state.js';
 import {wrap} from './text.js';
 import {cardThumbURL, invalidateLayout} from './layout.js';
 import {snack} from './export.js';
-import {SL, applyDesign, applyRelevance, autogrow, fillSlider, setHl, setViewChip, ta, updateFabLabel} from './ui.js';
+import {SL, applyDesign, applyRelevance, autogrow, fillSlider, setHl, setViewChip, syncEyes, syncGuides, syncHints, syncOutSummary, ta, updateFabLabel} from './ui.js';
 import {drawCheer} from './card-social.js';
 import {allBez, applyCurve, builtinCount, drawCurveThumb, easeFnFor, loadBez, matchBez, saveBez, syncBezFields} from './graph.js';
 
@@ -52,7 +52,7 @@ export function closeDesignPop(){
 /* One placement routine for every popup list, so the cheer picker and the design
    picker behave identically. Fixed to the viewport and bounded by the top of the
    mobile nav bar, flipping upward only when that genuinely gives more room. */
-const POP_GAP=4, POP_EDGE=6;
+const POP_GAP=4, POP_EDGE=6, POP_MIN_W=232;
 export function placePop(btnSel,popSel){
   const btn=$(btnSel),pop=$(popSel),bar=$(".mbar");
   /* Move the list to <body> before measuring. position:fixed is relative to the
@@ -69,8 +69,12 @@ export function placePop(btnSel,popSel){
   const room=Math.max(120,Math.floor(up?above:below));
   /* measure natural height first so a short list gets a snug box */
   pop.style.maxHeight="none";
-  pop.style.width=Math.round(r.width)+"px";
-  pop.style.left=Math.round(r.left)+"px";
+  /* A list needs room for its own contents, not just the width of the button that
+     opens it — the look picker's button is 132px, which squeezed its rows until
+     the row's own centre landed on a hover action. */
+  const w=Math.min(Math.max(r.width,POP_MIN_W),window.innerWidth-POP_EDGE*2);
+  pop.style.width=Math.round(w)+"px";
+  pop.style.left=Math.round(clamp(r.left,POP_EDGE,Math.max(POP_EDGE,window.innerWidth-POP_EDGE-w)))+"px";
   pop.style.top="0px";pop.style.bottom="auto";pop.style.visibility="hidden";
   pop.dataset.open="true";
   const h=Math.min(pop.scrollHeight,room);
@@ -134,81 +138,85 @@ function bindPop(hostSel,btnSel,popSel,build,pick){
   return {close,rebuild:()=>{if($(popSel).dataset.open==="true"){build();place();}}};
 }
 
-/* ---------- scale ease picker ---------- */
-const EASE_MODES=[["back","Overshoot"],["spring","Spring"],["smooth","Smooth"],
-  ["custom","Custom bezier"],["none","Off"]];
+/* ---------- motion picker ----------
+   One list for the whole movement: the built-in shapes first, then every curve.
+   Picking a curve implies the custom ease, so the user never has to know that
+   "Custom bezier" is a mode — it was three levels deep behind Curves > Scale >
+   Custom bezier > Curve, which is no place for the first thing you choose. */
+const EASE_MODES=[["back","Overshoot"],["spring","Spring"],["smooth","Smooth"],["none","No scale"]];
+function easeLabel(){
+  const row=EASE_MODES.find(m=>m[0]===S.scaleEase);
+  if(row)return row[1];
+  const at=matchBez();
+  return at>=0?allBez()[at][0]:"Custom curve";
+}
 export function syncEaseBtn(){
-  const row=EASE_MODES.find(m=>m[0]===S.scaleEase)||EASE_MODES[0];
-  $("#easeVal").textContent=row[1];
+  const v=$("#motionVal");
+  if(v)v.textContent=easeLabel();
+  const th=$("#motionThumb");
+  if(th)drawCurveThumb(th,easeFnFor(S.scaleEase));
   $("#overLab").textContent=S.scaleEase==="spring"?"Bounciness":"Overshoot";
 }
-function buildEasePop(){
-  const pop=$("#easePop");pop.innerHTML="";
-  for(const [v,lab] of EASE_MODES){
+export function syncBezBtn(force){syncEaseBtn();syncBezFields(force);}
+function buildMotionPop(){
+  const pop=$("#motionPop");pop.innerHTML="";
+  const head=t=>{const h=document.createElement("div");h.className="combo-grp";h.textContent=t;pop.appendChild(h);};
+  const opt=(sel,label,fn,extra)=>{
     const b=document.createElement("button");
-    b.className="combo-opt";b.type="button";b.dataset.v=v;
-    b.setAttribute("role","option");b.setAttribute("aria-selected",String(v===S.scaleEase));
+    b.className="combo-opt";b.type="button";
+    b.setAttribute("role","option");b.setAttribute("aria-selected",String(sel));
     const th=document.createElement("canvas");th.className="combo-th";th.width=42;th.height=24;
-    const t=document.createElement("span");t.textContent=lab;
-    b.append(th,t);pop.appendChild(b);
-    drawCurveThumb(th,easeFnFor(v));
-  }
-}
-let easePop=null,bezPop=null;
-export function initEasePickers(){
-  easePop=bindPop("#easeCombo","#easeBtn","#easePop",buildEasePop,b=>{
-    S.scaleEase=b.dataset.v;
-    syncEaseBtn();applyRelevance();syncBezBtn();
-    invalidateLayout();scheduleDraw();
-  });
-  bezPop=bindPop("#bezCombo","#bezBtn","#bezPop",buildBezPop,(b,e)=>{
-    if(e.target.closest(".rm")){
-      /* deleting a saved curve keeps the list open — you are usually tidying up */
-      const at=+b.dataset.user;
-      const l=loadBez();l.splice(at,1);saveBez(l);
-      buildBezPop();placePop("#bezBtn","#bezPop");syncBezBtn();
-      return false;
-    }
-    applyCurve(allBez()[+b.dataset.v][1]);
-    syncEaseBtn();applyRelevance();syncBezBtn();
-    invalidateLayout();scheduleDraw();
-  });
-  syncEaseBtn();syncBezBtn();
-}
-
-/* ---------- saved curve picker ---------- */
-export function syncBezBtn(force){
-  const at=matchBez(),all=allBez();
-  const v=$("#bezVal");
-  if(v)v.textContent=at>=0?all[at][0]:"Custom";
-  const th=$("#bezThumb");
-  if(th)drawCurveThumb(th,easeFnFor("custom"));
-  syncBezFields(force);
-}
-function buildBezPop(){
-  const pop=$("#bezPop");pop.innerHTML="";
-  const all=allBez(),nb=builtinCount(),at=matchBez();
-  const head=(txt)=>{const h=document.createElement("div");h.className="combo-grp";h.textContent=txt;pop.appendChild(h);};
-  all.forEach((row,i)=>{
-    if(i===0)head("Presets");
-    if(i===nb)head("Saved");
-    const b=document.createElement("button");
-    b.className="combo-opt";b.type="button";b.dataset.v=String(i);
-    b.setAttribute("role","option");b.setAttribute("aria-selected",String(i===at));
-    const th=document.createElement("canvas");th.className="combo-th";th.width=42;th.height=24;
-    const t=document.createElement("span");t.textContent=row[0];
+    const t=document.createElement("span");t.textContent=label;
     b.append(th,t);
+    if(extra)extra(b);
+    pop.appendChild(b);
+    drawCurveThumb(th,fn);
+    return b;
+  };
+  head("Shapes");
+  for(const [v,label] of EASE_MODES){
+    const b=opt(S.scaleEase===v,label,easeFnFor(v));
+    b.dataset.mode=v;
+  }
+  const all=allBez(),nb=builtinCount(),at=S.scaleEase==="custom"?matchBez():-1;
+  all.forEach((row,i)=>{
+    if(i===0)head("Curves");
+    if(i===nb)head("Saved");
+    const b=opt(i===at,row[0],cubicThumb(row[1]));
+    b.dataset.curve=String(i);
     if(i>=nb){
       b.dataset.user=String(i-nb);
       const rm=document.createElement("button");
-      rm.className="rm";rm.type="button";rm.textContent="✕";rm.title="Delete this curve";
+      rm.className="rm";rm.type="button";rm.textContent="\u2715";rm.title="Delete this curve";
       b.appendChild(rm);
     }
-    pop.appendChild(b);
-    const v=row[1];
-    drawCurveThumb(th,cubicThumb(v));
   });
 }
+export function initEasePickers(){
+  bindPop("#motionCombo","#motionBtn","#motionPop",buildMotionPop,(b,e)=>{
+    if(e.target.closest(".rm")){
+      /* deleting a saved curve keeps the list open — you are usually tidying up */
+      const l=loadBez();l.splice(+b.dataset.user,1);saveBez(l);
+      buildMotionPop();placePop("#motionBtn","#motionPop");syncEaseBtn();
+      return false;
+    }
+    if(b.dataset.mode!==undefined)S.scaleEase=b.dataset.mode;
+    else applyCurve(allBez()[+b.dataset.curve][1]);
+    syncEaseBtn();applyRelevance();
+    invalidateLayout();scheduleDraw();
+  });
+  syncEaseBtn();
+}
+$("#bezSave").addEventListener("click",()=>{
+  if(S.scaleEase!=="custom"){snack("Shape a curve first — pick a curve or drag the graph.");return;}
+  const name=(prompt("Name this curve:","My curve")||"").trim();
+  if(!name)return;
+  const list=loadBez();
+  const at=list.findIndex(c=>c[0].toLowerCase()===name.toLowerCase());
+  if(at>=0)list[at]=[name,S.bezier.slice()];else list.push([name,S.bezier.slice()]);
+  saveBez(list);syncEaseBtn();
+  snack((at>=0?"Updated":"Saved")+" curve \u201C"+name+"\u201D");
+});
 /* a standalone solver for a thumbnail's own control points, independent of S */
 function cubicThumb(v){
   const [x1,y1,x2,y2]=v;
@@ -217,24 +225,17 @@ function cubicThumb(v){
   const fx=t=>((ax*t+bx)*t+cx)*t,fy=t=>((ay*t+by)*t+cy)*t,dfx=t=>(3*ax*t+2*bx)*t+cx;
   return x=>{let t=x;for(let i=0;i<6;i++){const e=fx(t)-x;if(Math.abs(e)<1e-3)break;const dv=dfx(t);if(Math.abs(dv)<1e-6)break;t-=e/dv;}return fy(clamp(t,0,1));};
 }
-$("#bezSave").addEventListener("click",()=>{
-  const name=(prompt("Name this curve:","My curve")||"").trim();
-  if(!name)return;
-  const list=loadBez();
-  const at=list.findIndex(c=>c[0].toLowerCase()===name.toLowerCase());
-  if(at>=0)list[at]=[name,S.bezier.slice()];else list.push([name,S.bezier.slice()]);
-  saveBez(list);syncBezBtn();
-  snack((at>=0?"Updated":"Saved")+" curve “"+name+"”");
-});
 
 /* ---------- element visibility ---------- */
 const TICK='<svg class="tick" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
 export function buildShowChips(){
   const brand=d().brand;if(!brand)return;
+  const id=S.design;
   const box=$("#showGrid");box.innerHTML="";
   const wrap=document.createElement("div");wrap.className="chips";
   HIDEABLE.forEach(([key,label,test])=>{
-    if(!test(brand))return;
+    if(EYE_OWNED[key])return;          /* already has an eye on its own row */
+    if(!test(brand,id))return;
     const b=document.createElement("button");
     b.type="button";b.dataset.k=key;
     b.setAttribute("aria-pressed",String(!S.hidden[key]));
@@ -252,11 +253,19 @@ $("#showGrid").addEventListener("click",e=>{
   invalidateLayout();scheduleDraw();
 });
 $("#showAll").addEventListener("click",()=>{
-  S.hidden={};S.hideCounts=false;$("#hideCounts").checked=false;
-  buildShowChips();invalidateLayout();scheduleDraw();
+  S.hidden={};S.hideCounts=false;
+  buildShowChips();syncEyes();syncCounts();applyRelevance();
+  invalidateLayout();scheduleDraw();
 });
+/* Blanking the numbers keeps the icons but empties every count — and with nothing
+   left to type into, the Engagement section itself goes (see RELEVANT). The switch
+   stays outside that section, or it would collapse along with it. */
+export function syncCounts(){
+  const el=$("#hideCounts");if(el)el.checked=!!S.hideCounts;
+}
 $("#hideCounts").addEventListener("change",e=>{
-  S.hideCounts=e.target.checked;invalidateLayout();scheduleDraw();
+  S.hideCounts=e.target.checked;
+  applyRelevance();invalidateLayout();scheduleDraw();
 });
 
 /* ---------- presets ----------
@@ -295,54 +304,81 @@ function applyPreset(p){
    re-rendering every row on every repaint would cost far more than the ~3KB. */
 const THUMB_PX=96;
 function presetThumb(){return cardThumbURL(THUMB_PX);}
+/* The preset list became a picker in the header: the look-switcher belongs beside
+   the card-type switcher, since the two together are "what am I making". Save,
+   update and delete all live inside the list. */
 export function renderPresets(){
-  const box=$("#presetList"),list=loadPresets();
-  box.innerHTML="";
-  if(!list.length){
-    const e=document.createElement("div");e.className="empty";
-    e.textContent="No presets yet — set a card up, then Save current.";
-    box.appendChild(e);return;
-  }
-  list.forEach((p,i)=>{
-    const row=document.createElement("div");row.className="pr";
-    row.dataset.on=String(p.name===activePreset);
-    const nm=document.createElement("button");
-    nm.className="nm";nm.type="button";
-    nm.title="Apply this preset";
-    if(p.thumb){
-      const im=document.createElement("span");
-      im.className="th";im.style.setProperty("--th","url("+p.thumb+")");
-      nm.appendChild(im);
-    }
-    const lbl=document.createElement("span");lbl.className="lb";lbl.textContent=p.name;
-    nm.appendChild(lbl);
-    nm.addEventListener("click",()=>{applyPreset(p);renderPresets();});
-    const up=document.createElement("button");
-    up.className="act";up.type="button";up.textContent="Update";up.title="Overwrite with current settings";
-    up.addEventListener("click",()=>{
-      const l=loadPresets();l[i]={name:p.name,data:snapshot(),thumb:presetThumb()};storePresets(l);
-      activePreset=p.name;renderPresets();snack("Updated “"+p.name+"”");
-    });
-    const del=document.createElement("button");
-    del.className="act del";del.type="button";del.textContent="✕";del.title="Delete";
-    del.addEventListener("click",()=>{
-      const l=loadPresets();l.splice(i,1);storePresets(l);
-      if(activePreset===p.name)activePreset=null;
-      renderPresets();
-    });
-    row.append(nm,up,del);box.appendChild(row);
-  });
+  const v=$("#presetVal");if(!v)return;
+  v.textContent=activePreset||"Look";
+  v.classList.toggle("dim",!activePreset);
 }
-$("#presetSave").addEventListener("click",()=>{
-  const name=(prompt("Name this preset:","")||"").trim();
-  if(!name)return;
-  const l=loadPresets();
-  const at=l.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
-  const entry={name,data:snapshot(),thumb:presetThumb()};
-  if(at>=0)l[at]=entry;else l.push(entry);
-  storePresets(l);activePreset=name;renderPresets();
-  snack("Saved “"+name+"”");
-});
+function buildPresetPop(){
+  const pop=$("#presetPop");pop.innerHTML="";
+  const list=loadPresets();
+  const head=t=>{const h=document.createElement("div");h.className="combo-grp";h.textContent=t;pop.appendChild(h);};
+  if(!list.length){
+    const e=document.createElement("div");e.className="combo-empty";
+    e.textContent="No looks saved yet.";pop.appendChild(e);
+  }else{
+    head("Saved looks");
+    list.forEach((pr,i)=>{
+      const b=document.createElement("button");
+      b.className="combo-opt";b.type="button";b.dataset.at=String(i);
+      b.setAttribute("role","option");
+      b.setAttribute("aria-selected",String(pr.name===activePreset));
+      if(pr.thumb){
+        const im=document.createElement("span");
+        im.className="th";im.style.setProperty("--th","url("+pr.thumb+")");
+        b.appendChild(im);
+      }
+      const t=document.createElement("span");t.className="lb";t.textContent=pr.name;
+      b.appendChild(t);
+      const up=document.createElement("button");
+      up.className="rm up";up.type="button";up.textContent="Update";
+      up.title="Overwrite this look with the current card";
+      const rm=document.createElement("button");
+      rm.className="rm";rm.type="button";rm.textContent="\u2715";rm.title="Delete this look";
+      b.append(up,rm);
+      pop.appendChild(b);
+    });
+  }
+  const foot=document.createElement("button");
+  foot.className="combo-opt add";foot.type="button";foot.id="presetSave";
+  foot.textContent="Save the current card as a look\u2026";
+  pop.appendChild(foot);
+}
+export function initPresetPicker(){
+  bindPop("#presetCombo","#presetBtn","#presetPop",buildPresetPop,(b,e)=>{
+    if(b.id==="presetSave"){
+      const name=(prompt("Name this look:","")||"").trim();
+      if(!name)return false;
+      const l=loadPresets();
+      const at=l.findIndex(x=>x.name.toLowerCase()===name.toLowerCase());
+      const entry={name,data:snapshot(),thumb:presetThumb()};
+      if(at>=0)l[at]=entry;else l.push(entry);
+      storePresets(l);activePreset=name;renderPresets();
+      snack("Saved \u201C"+name+"\u201D");
+      return true;
+    }
+    const at=+b.dataset.at,list=loadPresets(),pr=list[at];
+    if(!pr)return false;
+    if(e.target.closest(".up")){
+      list[at]={name:pr.name,data:snapshot(),thumb:presetThumb()};
+      storePresets(list);activePreset=pr.name;renderPresets();
+      buildPresetPop();placePop("#presetBtn","#presetPop");
+      snack("Updated \u201C"+pr.name+"\u201D");
+      return false;
+    }
+    if(e.target.closest(".rm")){
+      list.splice(at,1);storePresets(list);
+      if(activePreset===pr.name)activePreset=null;
+      renderPresets();buildPresetPop();placePop("#presetBtn","#presetPop");
+      return false;
+    }
+    applyPreset(pr);renderPresets();
+  });
+  renderPresets();
+}
 
 /* Push every value in S back into its control. Called after applying a preset
    and after an undo, so it has to cover everything — a control left out would
@@ -363,9 +399,9 @@ export function syncAllControls(){
     fillSlider(el);
   });
   /* switches */
-  ["header","marks","guides","anim","hlAnim","follow","likeOn","twReply","subBadge","modBadge"]
+  ["header","marks","anim","hlAnim","likeOn","twReply","subBadge","modBadge"]
     .forEach(id=>{const el=$("#"+id);if(el)el.checked=!!S[id];});
-  $("#hideCounts").checked=!!S.hideCounts;
+  syncCounts();
   /* text fields */
   [["text","text"],["outlet","outlet"],["url","url"],["name","name"],["handle","handle"],
    ["sub","sub"],["time","time"],["audio","audio"],["mediaSrc","mediaSrc"],
@@ -373,12 +409,10 @@ export function syncAllControls(){
     const el=$("#"+id);if(el&&S[k]!==undefined)el.value=S[k];
   });
   R.lastText=S.text;autogrow(ta);
-  $("#typeBox").style.display=S.mode==="type"?"":"none";
-  $("#tapBox").style.display=S.mode==="tap"?"":"none";
   R.wordSig=null;
   setHl(S.hlColor,["#FFA8C5","#FFE566","#9BF6A5","#8BD3FF","#FF7A45"]
     .some(x=>x.toLowerCase()===String(S.hlColor).toLowerCase()));
-  syncEaseBtn();syncBezBtn(true);
+  syncBezBtn(true);syncGuides();syncHints();
   setViewChip();updateFabLabel();syncDesignBtn();
   applyDesign();     /* runs applyRelevance(), which owns all conditional rows */
 }

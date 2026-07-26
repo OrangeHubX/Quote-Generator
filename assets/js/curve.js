@@ -39,6 +39,12 @@ export function draw(){
   const pw=Math.round(w*dpr),ph=Math.round(h*dpr);
   if(cv.width!==pw||cv.height!==ph){cv.width=pw;cv.height=ph;}
 
+  /* The canvas can be narrower than its own overlays — a short stage makes a 9:16
+     preview only ~160px wide, where the readout badges would sit under the
+     buttons. The buttons win; the numbers are also in the Export tab. */
+  const tl=$(".ovl-tl");
+  if(tl)tl.classList.toggle("hide",w<240);
+
   const A=animated()?animAt(frameSec(R.frame)):{alpha:1,scale:1,dy:0,hp:1};
   paint(ctx,pw/vb.w,L,{tx:-vb.x,ty:-vb.y,guides:S.guides&&S.view==="frame",anim:A});
 

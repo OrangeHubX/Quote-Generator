@@ -21,10 +21,15 @@
       <div class="viewer"><canvas id="preview"></canvas></div>
       <div class="ovl ovl-tl"><span class="badge" id="rOut">—</span><span class="badge dim">Size <b id="rFit">—</b></span></div>
       <div class="ovl ovl-tr">
-        <button class="fab" id="view" aria-pressed="false" aria-label="Fit card" title="Frame the card only (F)">
+        <button class="fab" id="view" aria-pressed="false" aria-label="Zoom to card" title="Zoom the preview to the card (F)">
           <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
         <button class="fab" id="play" aria-pressed="false" aria-label="Play" title="Play (space)">
           <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></button>
+        <!-- A preview overlay, never exported — so it belongs with the preview, not
+             with the card's style. -->
+        <button class="fab" id="guides" aria-pressed="true" aria-label="Shorts UI zones"
+                title="Shorts UI safe zones — preview only, never exported">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 15h16M15 15V4"/></svg></button>
       </div>
     </div>
     <div class="tl hide" id="tl">
@@ -36,15 +41,26 @@
   <button class="grip" id="grip" aria-label="Drag to resize the editor"><span></span></button>
 
   <section class="insp">
+    <!-- What am I making, and in which look — the two decisions that start every
+         card, side by side. The preset list used to be three clicks deep in the
+         Export tab. -->
     <div class="insp-top">
-      <span class="mark">Quote Slate</span>
       <div class="combo" id="designCombo">
-        <button class="combo-btn" id="designBtn" aria-haspopup="listbox" aria-expanded="false">
+        <button class="combo-btn" id="designBtn" aria-haspopup="listbox" aria-expanded="false"
+                title="Card type">
           <span class="combo-dot" id="designDot"></span>
           <span class="combo-val" id="designVal">Quote card</span>
           <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="combo-pop" id="designPop" role="listbox"></div>
+      </div>
+      <div class="combo narrow" id="presetCombo">
+        <button class="combo-btn" id="presetBtn" aria-haspopup="listbox" aria-expanded="false"
+                title="Saved looks">
+          <span class="combo-val" id="presetVal">Look</span>
+          <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="combo-pop" id="presetPop" role="listbox"></div>
       </div>
       <span id="subtitle" class="hide"></span>
     </div>
@@ -61,26 +77,22 @@
       <!-- ===== CONTENT ===== -->
       <div class="page" data-page="content" data-on="true">
         <div class="cap" id="bodyHead">Text</div>
-        <div class="row" id="modeRow"><label>Highlight by</label>
-          <div class="seg" id="mode"><button data-v="type" aria-pressed="true">Select</button><button data-v="tap">Tap words</button></div>
-        </div>
-        <div id="typeBox">
-          <div class="row stack"><label for="text" id="textLabel">Quote</label>
-            <div class="taWrap">
-              <div class="taMirror" id="textMirror" aria-hidden="true"></div>
-              <textarea id="text" spellcheck="false" placeholder="Paste the quote…"></textarea>
-            </div>
-          </div>
-          <div class="btn-row">
-            <button class="btn" id="hlBtn"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 16l9-9 3 3-9 9H6z"/></svg>Highlight <span style="color:var(--fg-3)">⌘H</span></button>
-            <button class="btn ghost" id="clearBtn">Clear</button>
+        <!-- Writing and highlighting are two jobs, not two modes. The field and the
+             word chips are both always present: select-and-highlight for a phrase,
+             tap a chip for a word. Making them alternatives left the phone with no
+             text field at all. -->
+        <div class="row stack"><label for="text" id="textLabel">Quote</label>
+          <div class="taWrap">
+            <div class="taMirror" id="textMirror" aria-hidden="true"></div>
+            <textarea id="text" spellcheck="false" placeholder="Paste the quote…"></textarea>
           </div>
         </div>
-        <div id="tapBox" style="display:none">
-          <div class="words" id="words"></div>
-          <div class="btn-row"><button class="btn ghost" id="clearBtn2">Clear highlights</button></div>
-          <p class="note">Tap a word to toggle. Drag sideways for a phrase.</p>
+        <div class="words" id="words"></div>
+        <div class="btn-row">
+          <button class="btn" id="hlBtn"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 16l9-9 3 3-9 9H6z"/></svg>Highlight <span style="color:var(--fg-3)">⌘H</span></button>
+          <button class="btn ghost" id="clearBtn">Clear</button>
         </div>
+        <p class="note" id="tapHint">Tap a word to highlight it, or drag sideways for a phrase.</p>
 
         <!-- quote source -->
         <div id="sourceCard">
@@ -93,16 +105,17 @@
           <div class="row"><label for="url">URL / date</label>
             <input class="txt" type="text" id="url" spellcheck="false" autocomplete="off">
           </div>
-          <p class="note"><b>A card with no source looks invented.</b></p>
+          <p class="note" id="sourceHint"><b>A card with no source looks invented.</b></p>
         </div>
 
         <!-- social account -->
         <div id="socialCard" class="hide">
-          <div class="cap" id="socialHead">Account</div>
+          <div class="cap" id="socialHead">Account
+            <button class="cap-btn" id="showAll">Show all</button></div>
           <div class="row" id="nameRow"><label for="name">Name</label><input class="txt" type="text" id="name" spellcheck="false"></div>
           <div class="row" id="handleRow"><label for="handle" id="handleLabel">Handle</label><input class="txt" type="text" id="handle" spellcheck="false"></div>
           <div class="row" id="subRow"><label for="sub">Subreddit</label><input class="txt" type="text" id="sub" spellcheck="false"></div>
-          <div class="row"><label for="time">Timestamp</label><input class="txt" type="text" id="time" spellcheck="false" placeholder="2h"></div>
+          <div class="row" id="timeRow"><label for="time">Timestamp</label><input class="txt" type="text" id="time" spellcheck="false" placeholder="2h"></div>
           <div class="row" id="audioRow"><label for="audio">Audio</label><input class="txt" type="text" id="audio" spellcheck="false" placeholder="artist · Original audio"></div>
           <div class="drop" id="avatarDrop" role="button" tabindex="0" aria-label="Choose a profile picture">
             <span class="th" id="avatarThumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span>
@@ -111,21 +124,18 @@
             <input type="file" id="avatarFile" accept="image/*">
           </div>
           <div id="avatarFrame" class="hide">
+            <details class="fold"><summary>Frame the picture</summary>
             <div class="row sl"><label for="avatarScale">Zoom</label>
               <input type="range" id="avatarScale" min="100" max="300" value="100"><input class="num" id="avatarScaleNum" inputmode="numeric"><span class="unit">%</span></div>
             <div class="row sl"><label for="avatarX">Pan X</label>
               <input type="range" id="avatarX" min="-100" max="100" value="0"><input class="num" id="avatarXNum" inputmode="numeric"><span class="unit"></span></div>
             <div class="row sl"><label for="avatarY">Pan Y</label>
               <input type="range" id="avatarY" min="-100" max="100" value="0"><input class="num" id="avatarYNum" inputmode="numeric"><span class="unit"></span></div>
+            </details>
           </div>
           <div class="row" id="badgeRow"><label>Badge</label>
-            <div class="seg" id="badge"><button data-v="off">Off</button><button data-v="blue" aria-pressed="true">Blue</button><button data-v="gold">Gold</button></div>
+            <div class="seg" id="badge"><button data-v="blue" aria-pressed="true">Blue</button><button data-v="gold">Gold</button></div>
           </div>
-          <div class="row" id="avShapeRow"><label>Avatar</label>
-            <div class="seg" id="avShape"><button data-v="circle" aria-pressed="true">Circle</button><button data-v="square">Squared</button></div>
-          </div>
-          <div class="row rowsw" id="followRow"><span class="rl">Show “Follow”</span>
-            <label class="sw"><input type="checkbox" id="follow" checked><span class="tr"></span></label></div>
           <div class="row rowsw" id="likeRow"><span class="rl">Liked<small>Fills the heart</small></span>
             <label class="sw"><input type="checkbox" id="likeOn"><span class="tr"></span></label></div>
 
@@ -133,9 +143,6 @@
           <div id="twitchCard">
             <div class="row rowsw" id="twReplyRow"><span class="rl">Reply to someone<small>Adds the “Replying to” line</small></span>
               <label class="sw"><input type="checkbox" id="twReply"><span class="tr"></span></label></div>
-            <div class="row"><label>Name colour</label>
-              <div class="sw-grid" id="nameColor"></div>
-            </div>
             <div class="row"><label for="cheer">Cheer badge</label>
               <div class="cheerpick" id="cheerPick">
                 <button class="combo-btn" id="cheerBtn" aria-haspopup="listbox" aria-expanded="false">
@@ -153,33 +160,35 @@
           </div>
         </div>
 
-        <!-- element visibility -->
-        <div id="showCard" class="hide">
-          <div class="cap">Show / hide
-            <button class="cap-btn" id="showAll">All on</button></div>
-          <div class="row rowsw" id="countsRow"><span class="rl">Numbers<small>Blanks every count, keeps the icons</small></span>
-            <label class="sw"><input type="checkbox" id="hideCounts"><span class="tr"></span></label></div>
-          <div id="showGrid"></div>
-        </div>
+        <!-- Only the parts with no control of their own need a chip. Everything
+             else carries its own eye on its own row. -->
+        <div class="row" id="showRow"><label>Also show</label><div id="showGrid"></div></div>
 
-        <!-- engagement + media -->
-        <div id="metricsCard" class="hide">
+        <div class="row rowsw" id="countsRow"><span class="rl">Blank the numbers<small>Keeps the icons, empties every count</small></span>
+          <label class="sw"><input type="checkbox" id="hideCounts"><span class="tr"></span></label></div>
+
+        <div id="engageCard" class="hide">
           <div class="cap">Engagement</div>
           <div id="metricGrid"></div>
-          <div class="drop hide" id="mediaDrop" role="button" tabindex="0" aria-label="Choose an image">
+        </div>
+
+        <div id="mediaCard" class="hide">
+          <div class="cap">Media</div>
+          <div class="drop" id="mediaDrop" role="button" tabindex="0" aria-label="Choose an image">
             <span class="th" id="mediaThumb"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-4 4 3 3-2 4 3"/></svg></span>
             <span class="lb">Attached image<small id="mediaName">Shown inside the post</small></span>
             <button type="button" class="x hide" id="mediaClear" aria-label="Remove">&times;</button>
             <input type="file" id="mediaFile" accept="image/*">
           </div>
           <div id="mediaFrame" class="hide">
+            <details class="fold"><summary title="Zoom starts at exact fit, so panning can never show an empty edge.">Frame the image</summary>
             <div class="row sl"><label for="mediaScale">Zoom</label>
               <input type="range" id="mediaScale" min="100" max="300" value="100"><input class="num" id="mediaScaleNum" inputmode="numeric"><span class="unit">%</span></div>
             <div class="row sl"><label for="mediaX">Pan X</label>
               <input type="range" id="mediaX" min="-100" max="100" value="0"><input class="num" id="mediaXNum" inputmode="numeric"><span class="unit"></span></div>
             <div class="row sl"><label for="mediaY">Pan Y</label>
               <input type="range" id="mediaY" min="-100" max="100" value="0"><input class="num" id="mediaYNum" inputmode="numeric"><span class="unit"></span></div>
-            <p class="note">Zoom starts at exact fit, so panning can never show an empty edge.</p>
+            </details>
           </div>
           <div class="row" id="mediaSrcRow"><label for="mediaSrc">Link source</label>
             <input class="txt" type="text" id="mediaSrc" spellcheck="false" placeholder="youtube.com"></div>
@@ -196,6 +205,13 @@
           <div class="row" id="faceWrap"><label>Typeface</label>
             <div class="seg" id="face"><button data-v="serif">Serif</button><button data-v="sans" aria-pressed="true">Sans</button><button data-v="mono">Mono</button></div>
           </div>
+        </div>
+
+        <div class="row" id="avShapeRow"><label>Avatar shape</label>
+          <div class="seg" id="avShape"><button data-v="circle" aria-pressed="true">Circle</button><button data-v="square">Squared</button></div>
+        </div>
+        <div class="row" id="nameColorRow"><label>Name colour</label>
+          <div class="sw-grid" id="nameColor"></div>
         </div>
 
         <div class="cap">Highlight</div>
@@ -228,8 +244,6 @@
             <label class="sw"><input type="checkbox" id="header" checked><span class="tr"></span></label></div>
           <div class="row rowsw" id="marksRow"><span class="rl">Quotation marks</span>
             <label class="sw"><input type="checkbox" id="marks"><span class="tr"></span></label></div>
-          <div class="row rowsw"><span class="rl">Shorts UI zones<small>Preview only, never exported</small></span>
-            <label class="sw"><input type="checkbox" id="guides" checked><span class="tr"></span></label></div>
         </div>
       </div>
 
@@ -238,66 +252,27 @@
         <div class="cap">Card animation</div>
         <div class="row rowsw"><span class="rl">Animate in</span>
           <label class="sw"><input type="checkbox" id="anim" checked><span class="tr"></span></label></div>
-        <div class="gwrap" id="gwrap"><canvas id="curve"></canvas></div>
-        <p class="note" id="curveInfo">—</p>
-
-        <div class="cap" id="timingCap">Timing</div>
+        <!-- One picker for the whole movement: the built-in shapes and every saved
+             curve in one list. It was three levels deep behind Curves > Scale >
+             Custom bezier > Curve, which is no place for the first thing you pick. -->
+        <div class="row" id="motionRow"><label>Motion</label>
+          <div class="combo" id="motionCombo">
+            <button class="combo-btn" id="motionBtn" aria-haspopup="listbox" aria-expanded="false">
+              <canvas class="combo-th" id="motionThumb" width="42" height="24"></canvas>
+              <span class="combo-val" id="motionVal">Overshoot</span>
+              <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="combo-pop" id="motionPop" role="listbox"></div>
+          </div>
+          <button class="btn sq" id="bezSave" title="Save the current curve as a preset" aria-label="Save curve">
+            <svg viewBox="0 0 24 24"><path d="M5 5h11l3 3v11H5zM8 5v5h7V5M8 19v-5h8v5"/></svg></button>
+        </div>
         <div class="row sl" id="durRow"><label for="dur">Duration</label>
           <input type="range" id="dur" min="4" max="90" value="15"><input class="num" id="durNum" inputmode="numeric"><span class="unit">f</span></div>
         <div class="row sl" id="holdRow"><label for="hold">Hold after</label>
           <input type="range" id="hold" min="0" max="90" value="6"><input class="num" id="holdNum" inputmode="numeric"><span class="unit">f</span></div>
+        <p class="note" id="curveInfo">&mdash;</p>
 
-        <div id="curvesGroup">
-        <div class="cap">Curves</div>
-        <div class="row"><label>Fade</label>
-          <div class="seg" id="fadeEase"><button data-v="inout" aria-pressed="true">In-out</button><button data-v="out">Out</button><button data-v="none">None</button></div>
-        </div>
-        <div class="row"><label>Scale</label>
-          <div class="combo" id="easeCombo">
-            <button class="combo-btn" id="easeBtn" aria-haspopup="listbox" aria-expanded="false">
-              <span class="combo-val" id="easeVal">Overshoot</span>
-              <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="combo-pop" id="easePop" role="listbox"></div>
-          </div>
-        </div>
-        <div id="customRow" class="hide">
-          <div class="row"><label>Curve</label>
-            <div class="combo" id="bezCombo">
-              <button class="combo-btn" id="bezBtn" aria-haspopup="listbox" aria-expanded="false">
-                <canvas class="combo-th" id="bezThumb" width="42" height="24"></canvas>
-                <span class="combo-val" id="bezVal">Custom</span>
-                <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-              </button>
-              <div class="combo-pop" id="bezPop" role="listbox"></div>
-            </div>
-            <button class="btn sq" id="bezSave" title="Save this curve as a preset" aria-label="Save curve">
-              <svg viewBox="0 0 24 24"><path d="M5 5h11l3 3v11H5zM8 5v5h7V5M8 19v-5h8v5"/></svg></button>
-          </div>
-          <!-- After Effects' Keyframe Velocity fields: how far into the segment the
-               handle reaches, and how fast the value leaves or arrives. -->
-          <div class="row duo"><label for="infOut">Ease out</label>
-            <span class="fld"><input class="num" id="infOut" inputmode="decimal"><i>%</i></span>
-            <span class="fld"><input class="num" id="spdOut" inputmode="decimal"><i>×</i></span>
-          </div>
-          <div class="row duo"><label for="infIn">Ease in</label>
-            <span class="fld"><input class="num" id="infIn" inputmode="decimal"><i>%</i></span>
-            <span class="fld"><input class="num" id="spdIn" inputmode="decimal"><i>×</i></span>
-          </div>
-          <div class="row"><label for="bezText">Bezier</label>
-            <input class="txt mono lc sm" type="text" id="bezText" spellcheck="false" autocomplete="off"></div>
-          <p class="note">Drag either handle on the graph. <b>Shift</b> locks an axis,
-            <b>Alt</b> mirrors the other handle, double-click straightens that side.
-            Click a handle then use the arrow keys to nudge it.</p>
-        </div>
-        <div class="row sl" id="sFromRow"><label for="sFrom">Scale from</label>
-          <input type="range" id="sFrom" min="40" max="100" value="88"><input class="num" id="sFromNum" inputmode="numeric"><span class="unit">%</span></div>
-        <div class="row sl" id="overRow"><label for="over" id="overLab">Overshoot</label>
-          <input type="range" id="over" min="0" max="40" value="17"><input class="num" id="overNum" inputmode="numeric"><span class="unit"></span></div>
-        <div class="row sl"><label for="drift">Rise</label>
-          <input type="range" id="drift" min="0" max="160" value="0"><input class="num" id="driftNum" inputmode="numeric"><span class="unit">px</span></div>
-
-        </div>
         <div class="cap">Highlight animation</div>
         <div class="row rowsw"><span class="rl">Slide in<small>Wipes the marker across</small></span>
           <label class="sw"><input type="checkbox" id="hlAnim"><span class="tr"></span></label></div>
@@ -307,40 +282,74 @@
           <div class="row sl"><label for="hlDur">Slide time</label>
             <input type="range" id="hlDur" min="2" max="60" value="12"><input class="num" id="hlDurNum" inputmode="numeric"><span class="unit">f</span></div>
         </div>
+
+        <!-- Curve authoring: superb when you need it, silent when you do not. -->
+        <details class="fold sec" id="motionAdv">
+          <summary>Shape the curve</summary>
+          <div class="gwrap" id="gwrap"><canvas id="curve"></canvas></div>
+          <div class="row"><label>Fade</label>
+            <div class="seg" id="fadeEase"><button data-v="inout" aria-pressed="true">In-out</button><button data-v="out">Out</button><button data-v="none">None</button></div>
+          </div>
+          <div id="customRow" class="hide">
+            <!-- After Effects' Keyframe Velocity fields: how far into the segment the
+                 handle reaches, and how fast the value leaves or arrives. -->
+            <div class="row duo"><label for="infOut">Ease out</label>
+              <span class="fld"><input class="num" id="infOut" inputmode="decimal"><i>%</i></span>
+              <span class="fld"><input class="num" id="spdOut" inputmode="decimal"><i>&times;</i></span>
+            </div>
+            <div class="row duo"><label for="infIn">Ease in</label>
+              <span class="fld"><input class="num" id="infIn" inputmode="decimal"><i>%</i></span>
+              <span class="fld"><input class="num" id="spdIn" inputmode="decimal"><i>&times;</i></span>
+            </div>
+            <div class="row"><label for="bezText">Bezier</label>
+              <input class="txt mono lc sm" type="text" id="bezText" spellcheck="false" autocomplete="off"></div>
+            <p class="note">Drag either handle on the graph. <b>Shift</b> locks an axis,
+              <b>Alt</b> mirrors the other handle, double-click straightens that side.
+              Click a handle then use the arrow keys to nudge it.</p>
+          </div>
+          <div class="row sl" id="sFromRow"><label for="sFrom">Scale from</label>
+            <input type="range" id="sFrom" min="40" max="100" value="88"><input class="num" id="sFromNum" inputmode="numeric"><span class="unit">%</span></div>
+          <div class="row sl" id="overRow"><label for="over" id="overLab">Overshoot</label>
+            <input type="range" id="over" min="0" max="40" value="17"><input class="num" id="overNum" inputmode="numeric"><span class="unit"></span></div>
+          <div class="row sl"><label for="drift">Rise</label>
+            <input type="range" id="drift" min="0" max="160" value="0"><input class="num" id="driftNum" inputmode="numeric"><span class="unit">px</span></div>
+        </details>
       </div>
 
       <!-- ===== EXPORT ===== -->
       <div class="page" data-page="export">
-        <div class="cap" title="A preset stores every setting except the quote text and uploaded images, so it carries a look between cards.">Presets
-          <button class="cap-btn" id="presetSave">Save current</button></div>
-        <div id="presetList" class="presets"></div>
-        <div class="cap">Output</div>
+        <div class="cap">Deliver</div>
         <div class="row"><label>Type</label>
           <div class="seg" id="format"><button data-v="still" aria-pressed="true">Still</button><button data-v="seq">Frames</button><button data-v="webm">WebM</button><button data-v="gif">GIF</button></div>
         </div>
         <p class="note" id="fmtNote">A single settled frame.</p>
-        <div id="stillFmtCard">
-          <div class="row"><label>Encoding</label>
-            <div class="seg" id="imgFmt"><button data-v="png" aria-pressed="true">PNG</button><button data-v="jpeg">JPEG</button></div>
-          </div>
-          <div class="row sl hide" id="jpegQ"><label for="jq">Quality</label>
-            <input type="range" id="jq" min="60" max="100" value="92"><input class="num" id="jqNum" inputmode="numeric"><span class="unit">%</span></div>
+        <div class="row"><label title="Changes the exported pixel size. The canvas zoom does not.">Output size</label>
+          <div class="seg" id="crop"><button data-v="frame" aria-pressed="true">Full frame</button><button data-v="card">Crop to card</button></div>
         </div>
-        <div class="row"><label>Framing</label>
-          <div class="seg" id="crop"><button data-v="frame" aria-pressed="true">Full frame</button><button data-v="card">Card only</button></div>
-        </div>
-        <div class="row"><label>Resolution</label>
-          <div class="seg" id="res"><button data-v="1" aria-pressed="true">1080p</button><button data-v="2">4K</button></div>
-        </div>
-        <div class="row"><label>Background</label>
-          <div class="seg" id="bg"><button data-v="transparent" aria-pressed="true">Alpha</button><button data-v="#FFFFFF">White</button><button data-v="#000000">Black</button></div>
-        </div>
-        <div class="row" id="fpsRow"><label>Frame rate</label>
-          <div class="seg" id="fps"><button data-v="24">24</button><button data-v="25">25</button><button data-v="30" aria-pressed="true">30</button><button data-v="60">60</button></div>
-        </div>
-        <div class="cap">File</div>
-        <div class="row"><label for="exportName">Name</label>
+        <div class="row"><label for="exportName">File name</label>
           <input class="txt" type="text" id="exportName" spellcheck="false" autocomplete="off" placeholder="auto from text"></div>
+
+        <!-- Five rows of output configuration set once per channel. The summary
+             carries the answer, so opening it is a choice rather than a toll. -->
+        <details class="fold sec" id="outputAdv">
+          <summary>Output <span class="sum" id="outSummary"></span></summary>
+          <div class="row" id="resRow"><label>Resolution</label>
+            <div class="seg" id="res"><button data-v="1" aria-pressed="true">1080p</button><button data-v="2">4K</button></div>
+          </div>
+          <div class="row"><label>Background</label>
+            <div class="seg" id="bg"><button data-v="transparent" aria-pressed="true">Alpha</button><button data-v="#FFFFFF">White</button><button data-v="#000000">Black</button></div>
+          </div>
+          <div class="row" id="fpsRow"><label>Frame rate</label>
+            <div class="seg" id="fps"><button data-v="24">24</button><button data-v="25">25</button><button data-v="30" aria-pressed="true">30</button><button data-v="60">60</button></div>
+          </div>
+          <div id="stillFmtCard">
+            <div class="row"><label>Encoding</label>
+              <div class="seg" id="imgFmt"><button data-v="png" aria-pressed="true">PNG</button><button data-v="jpeg">JPEG</button></div>
+            </div>
+            <div class="row sl hide" id="jpegQ"><label for="jq">Quality</label>
+              <input type="range" id="jq" min="60" max="100" value="92"><input class="num" id="jqNum" inputmode="numeric"><span class="unit">%</span></div>
+          </div>
+        </details>
 
         <!-- Batch: one zip, one folder per animated card, so it can be unpacked
              straight into a project folder and imported sequence by sequence. -->
@@ -350,9 +359,10 @@
         <div id="batchList" class="bqlist"></div>
         <div class="row"><label for="batchPattern">Folder names</label>
           <input class="txt mono lc sm" type="text" id="batchPattern" spellcheck="false" autocomplete="off"
-                 placeholder="{n}_{design}_{name}"></div>
+                 placeholder="{n}_{design}_{name}">
+          <button class="btn sq" id="tokenHelp" title="Show the naming tokens" aria-label="Naming tokens" aria-expanded="false">?</button></div>
         <p class="note mono lc" id="batchPreview"></p>
-        <p class="note">Tokens: <b>{n}</b> position · <b>{name}</b> · <b>{design}</b> ·
+        <p class="note hide" id="tokenNote">Tokens: <b>{n}</b> position · <b>{name}</b> · <b>{design}</b> ·
           <b>{frames}</b> · <b>{fps}</b> · <b>{size}</b> · <b>{date}</b>.
           Frames are named after their folder, so a clip stays identifiable once it is on a timeline.
           A <b>_manifest.txt</b> at the zip root lists every folder with its settings.</p>
