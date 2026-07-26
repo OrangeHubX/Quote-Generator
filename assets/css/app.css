@@ -27,11 +27,13 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 
 /* ============ shell ============ */
 .app{display:grid;grid-template-columns:1fr 366px;height:100dvh;height:var(--vh,100dvh);overflow:hidden}
-/* pinning to the visual viewport stops the page background showing through
-   below the layout when the keyboard shortens the viewport */
 @media (max-width:900px){
-  html,body{height:100%;background:var(--panel)}
-  .app{position:fixed;left:0;top:0;right:0;height:var(--vh,100dvh)}
+  /* The layout viewport already shrinks for the keyboard (see the viewport
+     meta), so 100% is exactly the visible area. The body takes the nav bar
+     colour so that if a browser ignores that flag, any residual strip below the
+     bar reads as part of it instead of a black gap. */
+  html,body{height:100%;background:var(--sub-panel);overflow:hidden}
+  .app{height:100%;max-height:100%}
 }
 
 /* ---- canvas stage ---- */
@@ -306,9 +308,10 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
     transition:background .12s,width .12s}
   .grip:active{cursor:grabbing}
   .grip:active span,.app[data-drag=true] .grip span{background:var(--acc);width:56px}
-  /* only the grip is reachable when the editor is parked at the bottom */
+  /* parked at the bottom: dimmed, but never pointer-events:none — that could
+     strand the editor if the state ever changed without a drag */
   .app[data-sheet=peek] .pages,
-  .app[data-sheet=peek] .insp-top{opacity:.35;pointer-events:none}
+  .app[data-sheet=peek] .insp-top{opacity:.4}
   .insp{flex:1;min-height:0;border-left:0;border-top:0;background:var(--panel)}
   .insp-top{padding:8px 11px}
   .insp-top .mark{display:none}
@@ -350,3 +353,87 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 #bootmsg span{max-width:34em}
 #bootmsg code{font-family:var(--mono);font-size:12px;background:var(--input);
   border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--fg)}
+
+/* ============================================================
+   Motion. Short, functional easing — feedback on state change,
+   never anything that delays a click. All of it is disabled by
+   prefers-reduced-motion at the bottom of this file.
+   ============================================================ */
+:root{
+  --e-out:cubic-bezier(.22,1,.36,1);      /* settle */
+  --e-snap:cubic-bezier(.34,1.4,.5,1);    /* slight overshoot */
+  --t:.16s;
+}
+
+/* tab panels ease in rather than snapping */
+@keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.page[data-on=true]{animation:pageIn .2s var(--e-out) both}
+
+/* rows revealed by relevance changes fade rather than pop */
+@keyframes rowIn{from{opacity:0}to{opacity:1}}
+.row,.cap,.drop,.note{animation:rowIn .18s ease both}
+
+/* generic press feedback */
+.btn,.chip,.seg button,.chips button,.combo-btn,.cap-btn,.presets .pr .act,#dl,.mbar .mt,.mbar .go{
+  transition:background var(--t) ease,color var(--t) ease,border-color var(--t) ease,
+             transform .1s var(--e-out),box-shadow var(--t) ease,opacity var(--t) ease}
+.btn:active,.chip:active,.chips button:active,.combo-btn:active,.cap-btn:active,#dl:active,.mbar .go:active{transform:scale(.96)}
+.seg button:active{transform:scale(.94)}
+.mbar .mt:active{transform:scale(.93)}
+
+/* segmented / chip selection pops in */
+.seg button[aria-pressed=true]{animation:segPop .2s var(--e-snap)}
+@keyframes segPop{from{transform:scale(.88)}to{transform:scale(1)}}
+.chips button[aria-pressed=true] .tick{animation:tickIn .22s var(--e-snap)}
+@keyframes tickIn{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* switch: the thumb overshoots very slightly on the way across */
+.sw .tr{transition:background var(--t) ease,border-color var(--t) ease,transform .12s var(--e-out)}
+.sw .tr::after{transition:left .2s var(--e-snap),width .16s var(--e-out),
+               height .16s var(--e-out),background var(--t) ease}
+.sw:active .tr{transform:scale(.94)}
+
+/* text + numeric fields */
+.txt,.num{transition:background var(--t) ease,border-color var(--t) ease,box-shadow var(--t) ease}
+.txt:focus,.num:focus{box-shadow:0 0 0 3px var(--acc-soft)}
+
+/* slider thumb grows while dragging */
+input[type=range]::-webkit-slider-thumb{transition:transform .12s var(--e-out),box-shadow var(--t) ease}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.25)}
+
+/* combobox popup */
+.combo-pop{transform-origin:top right;animation:popIn .16s var(--e-out)}
+@keyframes popIn{from{opacity:0;transform:scale(.96) translateY(-6px)}to{opacity:1;transform:none}}
+.combo-opt{transition:background var(--t) ease,color var(--t) ease}
+
+/* autocomplete list */
+.ac[data-open=true]{animation:popIn .15s var(--e-out)}
+.ac li{transition:background .12s ease,color .12s ease}
+
+/* preset rows lift on hover */
+.presets .pr{transition:background var(--t) ease,border-color var(--t) ease,transform .12s var(--e-out)}
+.presets .pr:hover{transform:translateX(2px)}
+
+/* word chips */
+.w{transition:background .13s ease,color .13s ease,border-color .13s ease,transform .1s var(--e-out)}
+.w:active{transform:scale(.94)}
+.w.on{animation:tickIn .2s var(--e-snap)}
+
+/* toast */
+.snack{transition:opacity .2s ease,transform .24s var(--e-snap)}
+
+/* canvas fades in on first paint so it does not flash */
+@keyframes viewerIn{from{opacity:0}to{opacity:1}}
+.viewer{animation:viewerIn .3s ease both}
+
+/* the grip reacts to grabbing */
+.grip span{transition:background .14s ease,width .16s var(--e-snap),height .14s ease}
+.grip:active span,.app[data-drag=true] .grip span{height:5px}
+
+/* image drop thumbnail */
+.drop .th{transition:background-image .2s ease,transform .14s var(--e-out)}
+.drop:active .th{transform:scale(.94)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}

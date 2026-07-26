@@ -1,5 +1,5 @@
 /* card-social.js — Social cards: icon table, avatars and one renderer per platform. */
-import {AVCOL, FW, S, SANS, V_ON, brandPal, themeKey} from './data.js';
+import {AVCOL, FW, S, SANS, V_ON, brandPal, clamp, themeKey} from './data.js';
 import {rr} from './state.js';
 import {ellip, fmtCount, measureBlock, paintBlock} from './text.js';
 
@@ -47,6 +47,17 @@ function drawIcon(c,name,x,y,size,col,rot){
   if(ic.s){c.strokeStyle=col;c.lineWidth=ic.w||1.7;c.lineCap="round";c.lineJoin="round";c.stroke(new Path2D(ic.s));}
   c.restore();
 }
+/* Draw an image to cover a box, then apply the user's zoom and pan.
+   Zoom starts at 100% = exact cover, so the image can never be smaller than the
+   box, and the pan is clamped to the resulting slack — no empty edges. */
+export function drawFitted(c,img,x,y,w,h,scale,ox,oy){
+  const k=Math.max(w/img.width,h/img.height)*(Math.max(100,scale||100)/100);
+  const dw=img.width*k,dh=img.height*k;
+  const slackX=Math.max(0,(dw-w)/2),slackY=Math.max(0,(dh-h)/2);
+  const px=clamp((ox||0)/100,-1,1)*slackX;
+  const py=clamp((oy||0)/100,-1,1)*slackY;
+  c.drawImage(img,x+(w-dw)/2+px,y+(h-dh)/2+py,dw,dh);
+}
 /* rounded-square avatar (X brand accounts) or circle */
 function avatarPath(c,x,y,s,shape){
   if(shape==="square")rr(c,x,y,s,s,s*0.22);
@@ -54,7 +65,7 @@ function avatarPath(c,x,y,s,shape){
 }
 function drawAvatar(c,x,y,s,shape){
   c.save();avatarPath(c,x,y,s,shape);c.clip();
-  if(S.avatar)c.drawImage(S.avatar,x,y,s,s);
+  if(S.avatar)drawFitted(c,S.avatar,x,y,s,s,S.avatarScale,S.avatarX,S.avatarY);
   else{
     c.fillStyle=avatarColor();c.fillRect(x,y,s,s);
     c.fillStyle="#fff";c.font="600 "+Math.round(s*0.44)+"px "+SANS;
@@ -243,9 +254,7 @@ function drawMedia(c,L,X,Y){
     c.fillStyle=themeKey()==="dark"?"#4A4A4E":"#BCC0C4";
     const s=Math.min(m.w,m.h)*0.16;drawIcon(c,"igComment",mx+m.w/2-s/2,my+m.h/2-s/2,s,c.fillStyle);
   }else{
-    const sc=Math.max(m.w/S.media.width,m.h/S.media.height);
-    const dw=S.media.width*sc,dh=S.media.height*sc;
-    c.drawImage(S.media,mx+(m.w-dw)/2,my+(m.h-dh)/2,dw,dh);
+    drawFitted(c,S.media,mx,my,m.w,m.h,S.mediaScale,S.mediaX,S.mediaY);
   }
   c.restore();
   if(!m.bleed){c.strokeStyle=L.pal.rule;c.lineWidth=Math.max(1,fs*0.02);rr(c,mx,my,m.w,m.h,radius);c.stroke();}
@@ -514,7 +523,8 @@ function paintRedditYt(c,L,hp){
   if(V==="rpost"){
     c.save();avatarPath(c,X+pad,top,av);c.clip();
     c.fillStyle="#FF4500";c.fillRect(X+pad,top,av,av);
-    if(S.avatar)c.drawImage(S.avatar,X+pad,top,av,av);c.restore();
+    if(S.avatar)drawFitted(c,S.avatar,X+pad,top,av,av,S.avatarScale,S.avatarX,S.avatarY);
+    c.restore();
     const hx=X+L.headX,b=top+av*0.5+L.nameFs*0.34,dotsS=Math.round(fs*1.0);
     if(V_ON("menu"))drawIcon(c,"dots",right-dotsS,top+av*0.5-dotsS/2,dotsS,pal.sub);
     c.font="700 "+L.nameFs+"px "+SANS;

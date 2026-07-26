@@ -187,7 +187,7 @@ function bindImage(fileId,dropId,thumbId,nameId,clearId,key){
       S[key]=img;
       thumb.style.backgroundImage="url("+u+")";thumb.innerHTML="";
       nm.textContent=f.name;clr.classList.remove("hide");
-      invalidateLayout();scheduleDraw();
+      applyRelevance();invalidateLayout();scheduleDraw();
     };
     img.onerror=()=>{URL.revokeObjectURL(u);snack("Could not read that image.");};
     img.src=u;
@@ -196,7 +196,7 @@ function bindImage(fileId,dropId,thumbId,nameId,clearId,key){
     S[key]=null;file.value="";
     thumb.style.backgroundImage="";thumb.innerHTML=PLACEHOLDER_ICON[key];
     nm.textContent=PLACEHOLDER_TEXT[key];clr.classList.add("hide");
-    invalidateLayout();scheduleDraw();
+    applyRelevance();invalidateLayout();scheduleDraw();
   }
   file.addEventListener("change",e=>accept(e.target.files&&e.target.files[0]));
   drop.addEventListener("click",e=>{
@@ -241,7 +241,8 @@ hexEl.addEventListener("input",e=>{
 
 /* ---------- sliders (fill tracks handle) ---------- */
 /* ---------- sliders: drag, type an exact value, or double-click to reset ---------- */
-export const SL=["width","size","ypos","sFrom","over","drift","hold","dur","hlOffset","hlDur","jq"];
+export const SL=["width","size","ypos","sFrom","over","drift","hold","dur","hlOffset","hlDur","jq",
+  "avatarScale","avatarX","avatarY","mediaScale","mediaX","mediaY"];
 const LAYOUT_SLIDERS={width:1,size:1,ypos:1};
 const SL_DEFAULT={};
 export function fillSlider(el){

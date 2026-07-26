@@ -93,6 +93,9 @@ export const S={
   likes:"2.4K",retweets:"318",replies:"24",views:"98K",
   avatar:null,media:null,
   avShape:"circle",likeOn:false,audio:"",mediaSrc:"",
+  /* image framing: 100% = exact cover, pan is -100..100 of the available slack */
+  avatarScale:100,avatarX:0,avatarY:0,
+  mediaScale:100,mediaX:0,mediaY:0,
   /* per-element visibility — anything false is simply not drawn, and the
      layout closes the gap so you get the space back */
   hidden:{},
@@ -135,6 +138,8 @@ export const RELEVANT={
   /* --- media --- */
   mediaDrop:   x=>["x-post","x-reply","reddit-post","fb-post","ig-post"].indexOf(x.id)>=0,
   mediaSrcRow: x=>x.brand==="x",                    /* only X draws "From <source>" */
+  avatarFrame: x=>x.social&&!!S.avatar,             /* no point until there is an image */
+  mediaFrame:  x=>!!S.media&&["x-post","x-reply","reddit-post","fb-post","ig-post"].indexOf(x.id)>=0,
   /* --- quote-only --- */
   sourceCard:  x=>!x.social,
   faceWrap:    x=>!x.social,

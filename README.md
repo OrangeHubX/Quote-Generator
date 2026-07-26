@@ -62,6 +62,23 @@ whatever height is left. Dragging the grip snaps between three stops: editor
 full (canvas hidden), split, and parked at the bottom with only the grip in
 reach. Tapping the grip cycles them.
 
+What persists is the *snap state*, never a pixel height. Mobile browser chrome
+changes `--vh` constantly, and re-clamping a stored pixel value against a fresh
+maximum made the sheet drift on its own — sometimes into the parked state. For
+the same reason the resize handler ignores height-only changes, and the parked
+state must never set `pointer-events:none` or the editor could be stranded.
+
+**Keyboard and the viewport.** `interactive-widget=resizes-content` in the
+viewport meta makes the keyboard shrink the *layout* viewport, so `height:100%`
+is exactly the visible area and no gap can open below the nav bar. The body also
+takes the nav bar colour, so a browser that ignores the flag shows a blending
+strip rather than a black band.
+
+**Images.** `drawFitted()` covers the box first, then applies zoom and pan. Zoom
+starts at 100% = exact cover, so the pan clamps to the resulting slack and an
+empty edge is impossible. Avatars previously stretched non-square images because
+they were drawn straight into a square box.
+
 **Mutable state across modules.** Imported bindings are read-only, so runtime
 flags that several modules write (`playing`, `editing`, `lastText`, …) live as
 properties on the exported `R` object in `data.js`.

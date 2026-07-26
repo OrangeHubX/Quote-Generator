@@ -4,7 +4,7 @@ import {syncVH} from './state.js';
 import {draw, refreshBezSelect} from './curve.js';
 import {applyDesign, autogrow, markFilled, setHl, ta, updateFabLabel} from './ui.js';
 import {buildShowChips, renderPresets, syncDesignBtn} from './panels.js';
-import {initSheet} from './sheet.js';
+import {applySheet, initSheet} from './sheet.js';
 import {R, V_ON} from './data.js';
 import {invalidateLayout} from './layout.js';
 import {scheduleDraw} from './state.js';
@@ -28,7 +28,7 @@ initSheet();
 draw();
 /* Debug handle. Modules keep their own scope, so expose the pieces worth
    poking at from the console (and what the test suite drives). */
-window.QS={S,R,V_ON,draw,scheduleDraw,invalidateLayout,applyDesign,allBez,loadPresets};
+window.QS={S,R,V_ON,draw,scheduleDraw,invalidateLayout,applyDesign,allBez,loadPresets,applySheet};
 
 /* fonts and scrollbars can settle a frame late; re-fit once */
 setTimeout(draw,150);
