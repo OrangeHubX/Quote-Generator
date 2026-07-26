@@ -106,8 +106,27 @@ select.sel:focus-visible{outline:2px solid var(--acc);outline-offset:-1px}
 .txt:hover{background:var(--input-hi)}
 .txt:focus{border-color:var(--acc);background:var(--input)}
 .txt::placeholder{color:var(--fg-3)}
-textarea.txt{height:auto;min-height:72px;max-height:210px;padding:7px 8px;resize:none;
-  overflow-y:auto;line-height:1.5;font-size:13.5px}
+/* The quote field is a transparent textarea over a mirror div that repeats the
+   same text, so highlighted ranges can be shown behind the caret. Both layers
+   must share every metric or the two drift apart. */
+.taWrap{position:relative;background:var(--input);border:1px solid var(--line);
+  border-radius:var(--r);transition:border-color .1s,background .1s}
+.taWrap:hover{background:var(--input-hi)}
+.taWrap:focus-within{border-color:var(--acc);background:var(--input);
+  box-shadow:0 0 0 3px var(--acc-soft)}
+.taWrap textarea,.taMirror{
+  font-family:inherit;font-size:13.5px;line-height:1.5;
+  padding:7px 8px;margin:0;border:0;
+  white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;letter-spacing:normal}
+.taWrap textarea{position:relative;z-index:1;display:block;width:100%;
+  min-height:72px;max-height:210px;overflow-y:auto;resize:none;
+  background:transparent;color:var(--fg);outline:none}
+.taWrap textarea::placeholder{color:var(--fg-3)}
+.taMirror{position:absolute;inset:0;z-index:0;overflow:hidden;
+  color:transparent;pointer-events:none;user-select:none}
+/* deliberately not the marker colour — this is a hint, not a preview */
+.taMirror mark{background:rgba(125,147,255,.22);color:transparent;border-radius:3px;
+  box-shadow:0 1px 0 rgba(125,147,255,.55) inset,0 -1px 0 rgba(125,147,255,.55) inset}
 .txt.mono{font-family:var(--mono);text-transform:uppercase}
 
 /* numeric field beside a slider */
@@ -160,7 +179,7 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;bac
 input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--acc-soft)}
 
 /* colour swatches */
-.sw-grid{display:flex;gap:6px;align-items:center}
+.sw-grid{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .sw-grid button{width:24px;height:24px;border-radius:5px;border:1px solid rgba(255,255,255,.14);
   cursor:pointer;position:relative;flex:none;padding:0}
 .sw-grid button[aria-pressed=true]{box-shadow:0 0 0 2px var(--acc)}

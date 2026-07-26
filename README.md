@@ -81,13 +81,24 @@ height was `!important`, made the drag grip look dead. `isTextField()` in
 `state.js` is the single gate; keep the strip rule free of `!important` so the
 drag can never be silently overridden.
 
-**Design list placement.** The combobox popup is `position:fixed` and placed by
-`placeDesignPop()` against the live viewport, using the top of the mobile nav bar
-as its floor. It flips upward when there is more room there and caps its height
-so it always scrolls internally. Absolute positioning let it clip outside the
-editor with no way to reach it. Nothing in the popup's ancestor chain may set
-`opacity` below 1 — that both tints the popup and traps its `z-index` in a new
-stacking context, which is why the parked state dims only `.pages`.
+**Popup placement (design list, cheer badges).** Both popups are
+`position:fixed` and placed by the shared `placePop()` in `panels.js` against the
+live viewport, using the top of the mobile nav bar as its floor. Each flips
+upward when there is more room there and caps its height so it always scrolls
+internally. Absolute positioning let them clip outside the editor with no way to
+reach them.
+
+Two ancestor properties silently break this, so `placePop()` moves the popup to
+`document.body` before measuring:
+
+- **A transform anywhere above it.** `position:fixed` resolves against the
+  nearest ancestor that establishes a containing block, and a *filling*
+  animation counts — `.page[data-on=true]` animates `transform`, which offset the
+  cheer list by the panel header's height and pushed it off screen. Reparenting
+  to body level makes placement unconditional.
+- **`opacity` below 1.** That both tints the popup and traps its `z-index` in a
+  new stacking context, which is why the parked state dims only `.pages`, never
+  `.insp-top`.
 
 **Twitch chat card.** `twitch-comment` renders badges, the coloured username and
 the message as one flowing line by reusing the first-line indent from the
@@ -95,7 +106,21 @@ Instagram caption. Cheer badges are drawn, not fetched: `CHEER` in `data.js`
 lists the 18 tiers, and `drawCheer()` paints a tile plus a glyph whose point
 count climbs with the tier — coloured tile with a dark glyph below 200k, indigo
 tile with a coloured glyph above it. The picker renders each option with the
-same function, so the list can never drift from the output.
+same function, so the list can never drift from the output. **Reply to someone**
+switches between a plain chat line and a reply — the "Replying to" row and the
+field that feeds it appear together or not at all. Twitch has no like or view
+counts, so `hasCounts()` hides the Numbers switch for it.
+
+**Highlight hint in the text field.** `#textMirror` sits behind the textarea and
+mirrors its content with the ranges wrapped in `<mark>`. It is deliberately
+neutral — a faint underline, not the card's highlight colour — so the field shows
+*what* is highlighted without competing with the canvas. It must stay in exact
+metric sync with the textarea (same font, padding and wrapping) or the marks
+drift off the words.
+
+**Highlight mode.** Mobile forces **Tap words** and hides the selector:
+dragging a text selection inside a sheet that also pans is fragile, and tapping
+chips is faster. Desktop keeps both.
 
 **Images.** `drawFitted()` covers the box first, then applies zoom and pan. Zoom
 starts at 100% = exact cover, so the pan clamps to the resulting slack and an

@@ -292,7 +292,7 @@ export function layoutSocial(c,fs){
     const pad=Math.round(fs*0.85);
     L.pad=pad;L.bodyX=pad;L.bodyW=cardW-pad*2;
     L.bs=Math.round(fs*0.92);L.bgap=Math.round(fs*0.16);
-    L.replyH=(S.sub&&S.sub.trim())?Math.round(fs*1.35):0;
+    L.replyH=(S.twReply&&S.sub&&S.sub.trim())?Math.round(fs*1.35):0;
     L.headTop=pad;
     L.bodyTop=pad+L.replyH;
     c.font="700 "+fs+"px "+SANS;

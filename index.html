@@ -50,12 +50,15 @@
       <!-- ===== CONTENT ===== -->
       <div class="page" data-page="content" data-on="true">
         <div class="cap" id="bodyHead">Text</div>
-        <div class="row"><label>Highlight by</label>
+        <div class="row" id="modeRow"><label>Highlight by</label>
           <div class="seg" id="mode"><button data-v="type" aria-pressed="true">Select</button><button data-v="tap">Tap words</button></div>
         </div>
         <div id="typeBox">
           <div class="row stack"><label for="text" id="textLabel">Quote</label>
-            <textarea class="txt" id="text" spellcheck="false" placeholder="Paste the quote…"></textarea>
+            <div class="taWrap">
+              <div class="taMirror" id="textMirror" aria-hidden="true"></div>
+              <textarea id="text" spellcheck="false" placeholder="Paste the quote…"></textarea>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn" id="hlBtn"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 16l9-9 3 3-9 9H6z"/></svg>Highlight <span style="color:var(--fg-3)">⌘H</span></button>
@@ -117,6 +120,8 @@
 
           <!-- twitch chat -->
           <div id="twitchCard">
+            <div class="row rowsw" id="twReplyRow"><span class="rl">Reply to someone<small>Adds the “Replying to” line</small></span>
+              <label class="sw"><input type="checkbox" id="twReply"><span class="tr"></span></label></div>
             <div class="row"><label>Name colour</label>
               <div class="sw-grid" id="nameColor"></div>
             </div>
@@ -141,7 +146,7 @@
         <div id="showCard" class="hide">
           <div class="cap">Show / hide
             <button class="cap-btn" id="showAll">All on</button></div>
-          <div class="row rowsw"><span class="rl">Numbers<small>Blanks every count, keeps the icons</small></span>
+          <div class="row rowsw" id="countsRow"><span class="rl">Numbers<small>Blanks every count, keeps the icons</small></span>
             <label class="sw"><input type="checkbox" id="hideCounts"><span class="tr"></span></label></div>
           <div id="showGrid"></div>
         </div>

@@ -1,5 +1,5 @@
 /* panels.js — Design combobox, element visibility chips and saved presets. */
-import {$, CHEER, HIDEABLE, R, S, TWITCH_NAMES, d} from './data.js';
+import {$, CHEER, HIDEABLE, R, S, TWITCH_NAMES, clamp, d} from './data.js';
 import {scheduleDraw} from './state.js';
 import {wrap} from './text.js';
 import {invalidateLayout} from './layout.js';
@@ -48,33 +48,43 @@ export function closeDesignPop(){
   pop.dataset.open="false";
   $("#designBtn").setAttribute("aria-expanded","false");
 }
-/* Size and place the popup against the live viewport. The floor is the top of
-   the mobile nav bar when it is showing, otherwise the viewport edge, so the
-   list is never cut off and always scrolls within whatever room it has. */
-function placeDesignPop(){
-  const btn=$("#designBtn"),pop=$("#designPop"),bar=$(".mbar");
+/* One placement routine for every popup list, so the cheer picker and the design
+   picker behave identically. Fixed to the viewport and bounded by the top of the
+   mobile nav bar, flipping upward only when that genuinely gives more room. */
+const POP_GAP=4, POP_EDGE=6;
+export function placePop(btnSel,popSel){
+  const btn=$(btnSel),pop=$(popSel),bar=$(".mbar");
+  /* Move the list to <body> before measuring. position:fixed is relative to the
+     nearest ancestor that establishes a containing block, and .page carries a
+     filling transform animation — which silently offset the list by the panel's
+     header height. Living at body level makes placement unconditional. */
+  if(pop.parentElement!==document.body)document.body.appendChild(pop);
   const r=btn.getBoundingClientRect();
-  const M=8,GAP=6;
   const vh=window.innerHeight;
   const floor=(bar&&bar.offsetHeight>0)?bar.getBoundingClientRect().top:vh;
-  const below=floor-r.bottom-GAP-M;
-  const above=r.top-GAP-M;
-  const up=below<Math.min(200,above);          /* flip up only if it helps */
+  const below=floor-r.bottom-POP_GAP-POP_EDGE;
+  const above=r.top-POP_GAP-POP_EDGE;
+  const up=below<Math.min(200,above);
   const room=Math.max(120,Math.floor(up?above:below));
-  /* measure the natural height so a short list does not get a tall empty box */
+  /* measure natural height first so a short list gets a snug box */
   pop.style.maxHeight="none";
   pop.style.width=Math.round(r.width)+"px";
   pop.style.left=Math.round(r.left)+"px";
   pop.style.top="0px";pop.style.bottom="auto";pop.style.visibility="hidden";
   pop.dataset.open="true";
-  const natural=pop.scrollHeight;
-  const h=Math.min(natural,room);
+  const h=Math.min(pop.scrollHeight,room);
   pop.style.maxHeight=h+"px";
-  if(up){pop.style.top="auto";pop.style.bottom=Math.round(vh-r.top+GAP)+"px";}
-  else{pop.style.bottom="auto";pop.style.top=Math.round(r.bottom+GAP)+"px";}
+  /* Anchor to the button, then clamp inside the visible band. Without the clamp
+     a button scrolled out of the panel would fling the list off-screen. */
+  let top=up?(r.top-POP_GAP-h):(r.bottom+POP_GAP);
+  top=clamp(top,POP_EDGE,Math.max(POP_EDGE,floor-POP_EDGE-h));
+  pop.style.bottom="auto";
+  pop.style.top=Math.round(top)+"px";
   pop.dataset.dir=up?"up":"down";
   pop.style.visibility="";
+  btn.setAttribute("aria-expanded","true");
 }
+function placeDesignPop(){placePop("#designBtn","#designPop");}
 $("#designBtn").addEventListener("click",e=>{
   e.stopPropagation();
   if($("#designPop").dataset.open==="true"){closeDesignPop();return;}
@@ -277,22 +287,7 @@ function buildCheerPop(){
   mk("off","Off");
   CHEER.forEach(([tier,label])=>mk(tier,label));
 }
-function placeCheerPop(){
-  const btn=$("#cheerBtn"),pop=$("#cheerPop"),bar=$(".mbar");
-  const r=btn.getBoundingClientRect(),M=8,GAP=6,vh=window.innerHeight;
-  const floor=(bar&&bar.offsetHeight>0)?bar.getBoundingClientRect().top:vh;
-  const below=floor-r.bottom-GAP-M,above=r.top-GAP-M;
-  const up=below<Math.min(200,above);
-  const room=Math.max(120,Math.floor(up?above:below));
-  pop.style.maxHeight="none";pop.style.width=Math.round(r.width)+"px";
-  pop.style.left=Math.round(r.left)+"px";
-  pop.style.top="0px";pop.style.bottom="auto";pop.style.visibility="hidden";
-  pop.dataset.open="true";
-  pop.style.maxHeight=Math.min(pop.scrollHeight,room)+"px";
-  if(up){pop.style.top="auto";pop.style.bottom=Math.round(vh-r.top+GAP)+"px";}
-  else{pop.style.bottom="auto";pop.style.top=Math.round(r.bottom+GAP)+"px";}
-  pop.dataset.dir=up?"up":"down";pop.style.visibility="";
-}
+function placeCheerPop(){placePop("#cheerBtn","#cheerPop");}
 function closeCheerPop(){
   const pop=$("#cheerPop");
   if(pop.dataset.open!=="true")return;
@@ -302,7 +297,8 @@ $("#cheerBtn").addEventListener("click",e=>{
   e.stopPropagation();
   if($("#cheerPop").dataset.open==="true"){closeCheerPop();return;}
   buildCheerPop();placeCheerPop();
-  $("#cheerBtn").setAttribute("aria-expanded","true");
+  const sel=$("#cheerPop").querySelector('[aria-selected="true"]');
+  if(sel)sel.scrollIntoView({block:"nearest"});
 });
 $("#cheerPop").addEventListener("click",e=>{
   const b=e.target.closest(".cheer-opt");if(!b)return;
