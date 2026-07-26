@@ -40,17 +40,48 @@ export function syncDesignBtn(){
   $("#designVal").textContent=text;
   $("#designDot").style.background=col;
 }
-function closeDesignPop(){
-  $("#designPop").dataset.open="false";
+export function closeDesignPop(){
+  const pop=$("#designPop");
+  if(pop.dataset.open!=="true")return;
+  pop.dataset.open="false";
   $("#designBtn").setAttribute("aria-expanded","false");
+}
+/* Size and place the popup against the live viewport. The floor is the top of
+   the mobile nav bar when it is showing, otherwise the viewport edge, so the
+   list is never cut off and always scrolls within whatever room it has. */
+function placeDesignPop(){
+  const btn=$("#designBtn"),pop=$("#designPop"),bar=$(".mbar");
+  const r=btn.getBoundingClientRect();
+  const M=8,GAP=6;
+  const vh=window.innerHeight;
+  const floor=(bar&&bar.offsetHeight>0)?bar.getBoundingClientRect().top:vh;
+  const below=floor-r.bottom-GAP-M;
+  const above=r.top-GAP-M;
+  const up=below<Math.min(200,above);          /* flip up only if it helps */
+  const room=Math.max(120,Math.floor(up?above:below));
+  /* measure the natural height so a short list does not get a tall empty box */
+  pop.style.maxHeight="none";
+  pop.style.width=Math.round(r.width)+"px";
+  pop.style.left=Math.round(r.left)+"px";
+  pop.style.top="0px";pop.style.bottom="auto";pop.style.visibility="hidden";
+  pop.dataset.open="true";
+  const natural=pop.scrollHeight;
+  const h=Math.min(natural,room);
+  pop.style.maxHeight=h+"px";
+  if(up){pop.style.top="auto";pop.style.bottom=Math.round(vh-r.top+GAP)+"px";}
+  else{pop.style.bottom="auto";pop.style.top=Math.round(r.bottom+GAP)+"px";}
+  pop.dataset.dir=up?"up":"down";
+  pop.style.visibility="";
 }
 $("#designBtn").addEventListener("click",e=>{
   e.stopPropagation();
-  const pop=$("#designPop"),open=pop.dataset.open==="true";
-  if(open){closeDesignPop();return;}
+  if($("#designPop").dataset.open==="true"){closeDesignPop();return;}
   buildDesignPop();
-  pop.dataset.open="true";$("#designBtn").setAttribute("aria-expanded","true");
+  placeDesignPop();
 });
+/* the button moves when the sheet is dragged or the viewport changes */
+window.addEventListener("resize",()=>{if($("#designPop").dataset.open==="true")placeDesignPop();});
+$("#grip").addEventListener("pointerdown",closeDesignPop);
 $("#designPop").addEventListener("click",e=>{
   const b=e.target.closest(".combo-opt");if(!b)return;
   S.design=b.dataset.v;closeDesignPop();syncDesignBtn();applyDesign();

@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<!-- interactive-widget=resizes-content makes the on-screen keyboard shrink the
+     *layout* viewport, so height:100% fills exactly the visible area and no gap
+     can open below the nav bar. -->
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,interactive-widget=resizes-content">
 <meta name="theme-color" content="#0B0C0F">
 <title>Quote Slate</title>
 <link rel="stylesheet" href="assets/css/app.css">
@@ -93,6 +96,14 @@
             <button type="button" class="x hide" id="avatarClear" aria-label="Remove">&times;</button>
             <input type="file" id="avatarFile" accept="image/*">
           </div>
+          <div id="avatarFrame" class="hide">
+            <div class="row sl"><label for="avatarScale">Zoom</label>
+              <input type="range" id="avatarScale" min="100" max="300" value="100"><input class="num" id="avatarScaleNum" inputmode="numeric"><span class="unit">%</span></div>
+            <div class="row sl"><label for="avatarX">Pan X</label>
+              <input type="range" id="avatarX" min="-100" max="100" value="0"><input class="num" id="avatarXNum" inputmode="numeric"><span class="unit"></span></div>
+            <div class="row sl"><label for="avatarY">Pan Y</label>
+              <input type="range" id="avatarY" min="-100" max="100" value="0"><input class="num" id="avatarYNum" inputmode="numeric"><span class="unit"></span></div>
+          </div>
           <div class="row" id="badgeRow"><label>Badge</label>
             <div class="seg" id="badge"><button data-v="off">Off</button><button data-v="blue" aria-pressed="true">Blue</button><button data-v="gold">Gold</button></div>
           </div>
@@ -123,6 +134,15 @@
             <span class="lb">Attached image<small id="mediaName">Shown inside the post</small></span>
             <button type="button" class="x hide" id="mediaClear" aria-label="Remove">&times;</button>
             <input type="file" id="mediaFile" accept="image/*">
+          </div>
+          <div id="mediaFrame" class="hide">
+            <div class="row sl"><label for="mediaScale">Zoom</label>
+              <input type="range" id="mediaScale" min="100" max="300" value="100"><input class="num" id="mediaScaleNum" inputmode="numeric"><span class="unit">%</span></div>
+            <div class="row sl"><label for="mediaX">Pan X</label>
+              <input type="range" id="mediaX" min="-100" max="100" value="0"><input class="num" id="mediaXNum" inputmode="numeric"><span class="unit"></span></div>
+            <div class="row sl"><label for="mediaY">Pan Y</label>
+              <input type="range" id="mediaY" min="-100" max="100" value="0"><input class="num" id="mediaYNum" inputmode="numeric"><span class="unit"></span></div>
+            <p class="note">Zoom starts at exact fit, so panning can never show an empty edge.</p>
           </div>
           <div class="row" id="mediaSrcRow"><label for="mediaSrc">Link source</label>
             <input class="txt" type="text" id="mediaSrc" spellcheck="false" placeholder="youtube.com"></div>
