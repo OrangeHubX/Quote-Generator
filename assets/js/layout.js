@@ -48,23 +48,72 @@ function cubicBezier(x1,y1,x2,y2){
   return function(x){let t=x;for(let i=0;i<8;i++){const e=fx(t)-x;if(Math.abs(e)<1e-4)break;const dv=dfx(t);if(Math.abs(dv)<1e-6)break;t-=e/dv;}
     return fy(clamp(t,0,1));};
 }
+/* The graph samples this a few hundred times per repaint, so rebuild the solver
+   only when the control points actually move. */
+let bezFn=null,bezSig="";
+export function bez(){
+  const sig=S.bezier.join(",");
+  if(sig!==bezSig){bezSig=sig;bezFn=cubicBezier(S.bezier[0],S.bezier[1],S.bezier[2],S.bezier[3]);}
+  return bezFn;
+}
+/* The eased 0..1 progress — the *shape* of the move, which may overshoot 1 or
+   dip below 0. Both the graph and the scale mapping read it, so what the graph
+   draws and what the card does can never disagree. */
+export function easeProgress(t){
+  if(!S.anim||S.scaleEase==="none")return 1;
+  if(S.scaleEase==="back")return EASE.back(t,S.over/10);
+  if(S.scaleEase==="spring")return EASE.spring(t,S.over/10);
+  if(S.scaleEase==="custom")return bez()(t);
+  return EASE.smooth(t);
+}
 export function scaleFn(t){
   if(!S.anim||S.scaleEase==="none")return 1;
-  let f;
-  if(S.scaleEase==="back")f=EASE.back(t,S.over/10);
-  else if(S.scaleEase==="spring")f=EASE.spring(t,S.over/10);
-  else if(S.scaleEase==="custom")f=cubicBezier(S.bezier[0],S.bezier[1],S.bezier[2],S.bezier[3])(t);
-  else f=EASE.smooth(t);
-  return (S.sFrom/100)+(1-S.sFrom/100)*f;
+  return (S.sFrom/100)+(1-S.sFrom/100)*easeProgress(t);
 }
-export function animEndSec(){
-  const fps=+S.fps;let end=0;
-  if(S.anim)end=S.dur/30;
-  if(S.hlAnim)end=Math.max(end,S.hlOffset/30+S.hlDur/30);
-  return end;
+
+/* ---------- timing ----------
+   Every duration in S is a frame count at the *selected* frame rate, the way a
+   video editor expects: 15f is 15 frames whether the export is 24 or 60fps.
+   This used to divide by a hardcoded 30, so the "f" unit was a lie everywhere
+   except at 30fps. */
+export function FPS(){return +S.fps||30;}
+export function animFrames(){          /* animated frames, hold excluded */
+  let n=0;
+  if(S.anim)n=S.dur;
+  if(S.hlAnim)n=Math.max(n,S.hlOffset+S.hlDur);
+  return Math.max(1,n);
+}
+export function animEndSec(){return (S.anim||S.hlAnim)?animFrames()/FPS():0;}
+export function totalFrames(){return (S.anim||S.hlAnim)?animFrames()+S.hold:1;}
+/* Frame index → seconds. The timeline scrubber and every exporter share this,
+   so the frame under the playhead is the frame that gets written out. */
+export function frameSec(i){
+  const f=FPS(),af=animFrames();
+  return i<af?(i/f):(animEndSec()+(i-af+1)/f);
+}
+export function frameSecs(){
+  const n=totalFrames(),secs=[];
+  for(let i=0;i<n;i++)secs.push(frameSec(i));
+  return {fps:FPS(),n,secs};
+}
+/* A card-cropped thumbnail for the preset and batch rows. Framing the whole
+   9:16 frame left the card a two-pixel sliver at this size; cropping to the card
+   plus its margin makes the row identifiable at a glance. Longest side is capped
+   so a wide chat card and a tall quote card both fit the same box. */
+export function cardThumbURL(maxPx){
+  try{
+    const L=fitLayout(document.createElement("canvas").getContext("2d"));
+    const m=Math.round(L.fs*1.35);
+    const cw=L.cardW+m*2,ch=L.cardH+m*2;
+    const k=maxPx/Math.max(cw,ch);
+    const c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(cw*k));c.height=Math.max(1,Math.round(ch*k));
+    paint(c.getContext("2d"),k,L,{tx:-L.x+m,ty:-L.y+m,anim:{alpha:1,scale:1,dy:0,hp:1}});
+    return c.toDataURL("image/png");
+  }catch(_){return "";}
 }
 export function animAt(sec){
-  const durSec=S.dur/30;
+  const f=FPS(),durSec=Math.max(1,S.dur)/f;
   let alpha=1,scale=1,dy=0;
   if(S.anim){
     const t=clamp(sec/durSec,0,1);
@@ -73,10 +122,9 @@ export function animAt(sec){
     dy=S.drift*(1-EASE.out(t));
   }
   let hp=1;
-  if(S.hlAnim){const offs=S.hlOffset/30,hd=Math.max(.05,S.hlDur/30);hp=clamp((sec-offs)/hd,0,1);}
+  if(S.hlAnim){const offs=S.hlOffset/f,hd=Math.max(1,S.hlDur)/f;hp=clamp((sec-offs)/hd,0,1);}
   return {alpha,scale,dy,hp};
 }
-export function totalFrames(){const fps=+S.fps;const end=animEndSec();return (S.anim||S.hlAnim)?Math.max(1,Math.round(end*fps))+S.hold:1;}
 
 /* ---------- paint (whole frame) ---------- */
 export function paint(c,scale,L,o){

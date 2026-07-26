@@ -14,12 +14,23 @@
 <div class="app">
 
   <main class="stage">
-    <div class="viewer"><canvas id="preview"></canvas></div>
-    <div class="tools">
-      <button class="chip" id="view" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Fit card</span></button>
-      <button class="chip" id="play"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg><span>Play</span></button>
+    <!-- The tools float over the canvas instead of sitting in a row beneath it,
+         which gives the preview the height back and puts the controls where the
+         eye already is. -->
+    <div class="cwrap">
+      <div class="viewer"><canvas id="preview"></canvas></div>
+      <div class="ovl ovl-tl"><span class="badge" id="rOut">—</span><span class="badge dim">Size <b id="rFit">—</b></span></div>
+      <div class="ovl ovl-tr">
+        <button class="fab" id="view" aria-pressed="false" aria-label="Fit card" title="Frame the card only (F)">
+          <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        <button class="fab" id="play" aria-pressed="false" aria-label="Play" title="Play (space)">
+          <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></button>
+      </div>
     </div>
-    <div class="readout"><div>Out <b id="rOut">—</b></div><div>Size <b id="rFit">—</b></div></div>
+    <div class="tl hide" id="tl">
+      <canvas id="tlBar"></canvas>
+      <button class="tl-read" id="tlEnd" title="Jump to the last frame (End)"><span id="tlRead">—</span></button>
+    </div>
   </main>
 
   <button class="grip" id="grip" aria-label="Drag to resize the editor"><span></span></button>
@@ -206,11 +217,10 @@
         <div class="cap">Layout</div>
         <div class="row sl"><label for="width" id="widthLab">Card width</label>
           <input type="range" id="width" min="45" max="95" value="75"><input class="num" id="widthNum" inputmode="numeric"><span class="unit">%</span></div>
-        <div class="row sl"><label for="size">Text size</label>
+        <div class="row sl"><label for="size" title="A target, not a cap — the card shrinks to fit the frame. Double-click any slider to reset it.">Text size</label>
           <input type="range" id="size" min="26" max="72" value="42"><input class="num" id="sizeNum" inputmode="numeric"><span class="unit">px</span></div>
         <div class="row sl"><label for="ypos">Vertical</label>
           <input type="range" id="ypos" min="-30" max="30" value="0"><input class="num" id="yposNum" inputmode="numeric"><span class="unit">%</span></div>
-        <p class="note">Text size is a target — the card shrinks to fit the frame. Double-click a slider to reset.</p>
 
         <div id="extrasCard">
           <div class="cap">Extras</div>
@@ -228,41 +238,61 @@
         <div class="cap">Card animation</div>
         <div class="row rowsw"><span class="rl">Animate in</span>
           <label class="sw"><input type="checkbox" id="anim" checked><span class="tr"></span></label></div>
-        <div class="gwrap"><canvas id="curve" width="700" height="300"></canvas></div>
+        <div class="gwrap" id="gwrap"><canvas id="curve"></canvas></div>
         <p class="note" id="curveInfo">—</p>
 
         <div class="cap" id="timingCap">Timing</div>
         <div class="row sl" id="durRow"><label for="dur">Duration</label>
-          <input type="range" id="dur" min="8" max="60" value="15"><input class="num" id="durNum" inputmode="numeric"><span class="unit">f</span></div>
+          <input type="range" id="dur" min="4" max="90" value="15"><input class="num" id="durNum" inputmode="numeric"><span class="unit">f</span></div>
         <div class="row sl" id="holdRow"><label for="hold">Hold after</label>
-          <input type="range" id="hold" min="0" max="60" value="6"><input class="num" id="holdNum" inputmode="numeric"><span class="unit">f</span></div>
+          <input type="range" id="hold" min="0" max="90" value="6"><input class="num" id="holdNum" inputmode="numeric"><span class="unit">f</span></div>
 
         <div id="curvesGroup">
         <div class="cap">Curves</div>
         <div class="row"><label>Fade</label>
           <div class="seg" id="fadeEase"><button data-v="inout" aria-pressed="true">In-out</button><button data-v="out">Out</button><button data-v="none">None</button></div>
         </div>
-        <div class="row"><label for="scaleEase">Scale</label>
-          <select class="sel" id="scaleEase">
-            <option value="back">Overshoot</option>
-            <option value="spring">Spring</option>
-            <option value="smooth">Smooth</option>
-            <option value="custom">Custom bezier</option>
-            <option value="none">Off</option>
-          </select>
+        <div class="row"><label>Scale</label>
+          <div class="combo" id="easeCombo">
+            <button class="combo-btn" id="easeBtn" aria-haspopup="listbox" aria-expanded="false">
+              <span class="combo-val" id="easeVal">Overshoot</span>
+              <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="combo-pop" id="easePop" role="listbox"></div>
+          </div>
         </div>
         <div id="customRow" class="hide">
-          <div class="row"><label for="bezPreset">Preset</label>
-            <div style="display:flex;gap:6px">
-              <select class="sel" id="bezPreset" aria-label="Bezier preset" style="flex:1"></select>
-              <button class="btn" id="bezSave">Save</button>
+          <div class="row"><label>Curve</label>
+            <div class="combo" id="bezCombo">
+              <button class="combo-btn" id="bezBtn" aria-haspopup="listbox" aria-expanded="false">
+                <canvas class="combo-th" id="bezThumb" width="42" height="24"></canvas>
+                <span class="combo-val" id="bezVal">Custom</span>
+                <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="combo-pop" id="bezPop" role="listbox"></div>
             </div>
+            <button class="btn sq" id="bezSave" title="Save this curve as a preset" aria-label="Save curve">
+              <svg viewBox="0 0 24 24"><path d="M5 5h11l3 3v11H5zM8 5v5h7V5M8 19v-5h8v5"/></svg></button>
           </div>
-          <p class="note">Drag the two dots on the graph to shape the curve.</p>
+          <!-- After Effects' Keyframe Velocity fields: how far into the segment the
+               handle reaches, and how fast the value leaves or arrives. -->
+          <div class="row duo"><label for="infOut">Ease out</label>
+            <span class="fld"><input class="num" id="infOut" inputmode="decimal"><i>%</i></span>
+            <span class="fld"><input class="num" id="spdOut" inputmode="decimal"><i>×</i></span>
+          </div>
+          <div class="row duo"><label for="infIn">Ease in</label>
+            <span class="fld"><input class="num" id="infIn" inputmode="decimal"><i>%</i></span>
+            <span class="fld"><input class="num" id="spdIn" inputmode="decimal"><i>×</i></span>
+          </div>
+          <div class="row"><label for="bezText">Bezier</label>
+            <input class="txt mono lc sm" type="text" id="bezText" spellcheck="false" autocomplete="off"></div>
+          <p class="note">Drag either handle on the graph. <b>Shift</b> locks an axis,
+            <b>Alt</b> mirrors the other handle, double-click straightens that side.
+            Click a handle then use the arrow keys to nudge it.</p>
         </div>
-        <div class="row sl"><label for="sFrom">Scale from</label>
+        <div class="row sl" id="sFromRow"><label for="sFrom">Scale from</label>
           <input type="range" id="sFrom" min="40" max="100" value="88"><input class="num" id="sFromNum" inputmode="numeric"><span class="unit">%</span></div>
-        <div class="row sl"><label for="over" id="overLab">Overshoot</label>
+        <div class="row sl" id="overRow"><label for="over" id="overLab">Overshoot</label>
           <input type="range" id="over" min="0" max="40" value="17"><input class="num" id="overNum" inputmode="numeric"><span class="unit"></span></div>
         <div class="row sl"><label for="drift">Rise</label>
           <input type="range" id="drift" min="0" max="160" value="0"><input class="num" id="driftNum" inputmode="numeric"><span class="unit">px</span></div>
@@ -273,18 +303,17 @@
           <label class="sw"><input type="checkbox" id="hlAnim"><span class="tr"></span></label></div>
         <div id="hlAnimRow" class="hide">
           <div class="row sl"><label for="hlOffset">Offset</label>
-            <input type="range" id="hlOffset" min="0" max="45" value="9"><input class="num" id="hlOffsetNum" inputmode="numeric"><span class="unit">f</span></div>
+            <input type="range" id="hlOffset" min="0" max="90" value="9"><input class="num" id="hlOffsetNum" inputmode="numeric"><span class="unit">f</span></div>
           <div class="row sl"><label for="hlDur">Slide time</label>
-            <input type="range" id="hlDur" min="4" max="30" value="12"><input class="num" id="hlDurNum" inputmode="numeric"><span class="unit">f</span></div>
+            <input type="range" id="hlDur" min="2" max="60" value="12"><input class="num" id="hlDurNum" inputmode="numeric"><span class="unit">f</span></div>
         </div>
       </div>
 
       <!-- ===== EXPORT ===== -->
       <div class="page" data-page="export">
-        <div class="cap">Presets
+        <div class="cap" title="A preset stores every setting except the quote text and uploaded images, so it carries a look between cards.">Presets
           <button class="cap-btn" id="presetSave">Save current</button></div>
         <div id="presetList" class="presets"></div>
-        <p class="note" id="presetNote">Presets store every setting except uploaded images.</p>
         <div class="cap">Output</div>
         <div class="row"><label>Type</label>
           <div class="seg" id="format"><button data-v="still" aria-pressed="true">Still</button><button data-v="seq">Frames</button><button data-v="webm">WebM</button><button data-v="gif">GIF</button></div>
@@ -312,7 +341,27 @@
         <div class="cap">File</div>
         <div class="row"><label for="exportName">Name</label>
           <input class="txt" type="text" id="exportName" spellcheck="false" autocomplete="off" placeholder="auto from text"></div>
-        <p class="note">Frames append <b>_0000</b>. <b>Frames</b> (PNG) is lossless with alpha — use it for Premiere. GIF and WebM are previews.</p>
+
+        <!-- Batch: one zip, one folder per animated card, so it can be unpacked
+             straight into a project folder and imported sequence by sequence. -->
+        <div class="cap" title="Queue several cards and render them in one pass. Each animated card becomes its own folder inside the zip.">Batch
+          <span class="pill" id="batchCount"></span>
+          <button class="cap-btn" id="batchAdd">Add current</button></div>
+        <div id="batchList" class="bqlist"></div>
+        <div class="row"><label for="batchPattern">Folder names</label>
+          <input class="txt mono lc sm" type="text" id="batchPattern" spellcheck="false" autocomplete="off"
+                 placeholder="{n}_{design}_{name}"></div>
+        <p class="note mono lc" id="batchPreview"></p>
+        <p class="note">Tokens: <b>{n}</b> position · <b>{name}</b> · <b>{design}</b> ·
+          <b>{frames}</b> · <b>{fps}</b> · <b>{size}</b> · <b>{date}</b>.
+          Frames are named after their folder, so a clip stays identifiable once it is on a timeline.
+          A <b>_manifest.txt</b> at the zip root lists every folder with its settings.</p>
+        <div class="row"><label for="batchName">Zip name</label>
+          <input class="txt" type="text" id="batchName" spellcheck="false" autocomplete="off" placeholder="slate-batch-{date}"></div>
+        <div class="btn-row">
+          <button class="btn" id="batchGo" disabled><svg viewBox="0 0 24 24"><path d="M4 7h5l2 2h9v10H4zM12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg><span>Export batch</span></button>
+          <button class="btn ghost" id="batchClear">Clear queue</button>
+        </div>
       </div>
 
     </div>

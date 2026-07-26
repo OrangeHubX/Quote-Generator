@@ -19,21 +19,27 @@ assets/js/
   text.js               highlight ranges, wrapping, shared text block
   card-quote.js         the news quote card
   card-social.js        icon table, avatars, one renderer per platform
-  layout.js             layout dispatch + cache, easing, whole-frame paint
-  curve.js              motion graph, bezier handles, preview loop
-  export.js             zip writer, GIF encoder, export paths
+  layout.js             layout dispatch + cache, easing, timing, whole-frame paint
+  graph.js              motion graph: value + velocity plots, bezier handles
+  timeline.js           frame ruler, playhead, scrubbing, playback
+  curve.js              the preview draw loop
+  history.js            undo / redo over the whole editable state
+  export.js             zip writer, GIF encoder, single-card export paths
+  batch.js              queue several cards, export as one zip of folders
   ui.js                 DOM wiring: fields, sliders, segmented groups, tabs
-  panels.js             design combobox, show/hide chips, saved presets
+  panels.js             comboboxes, show/hide chips, saved presets and curves
   sheet.js              draggable editor sheet (mobile)
   boot.js               entry point — the only script index.html loads
 ```
 
 `boot.js` is the entry; everything else is reached through imports. A few
-modules import from each other (`ui` ↔ `curve`, `ui` ↔ `panels`); those cycles
-resolve because the cross-references are function calls, never module-init
-reads. Anything that must run at startup goes in `boot.js`, not at a module's
-top level — that is what caused a `BEZ_BUILTIN` temporal-dead-zone error during
-the conversion.
+modules import from each other (`ui` ↔ `curve`, `ui` ↔ `panels`, `panels` ↔
+`graph`); those cycles resolve because the cross-references are function calls,
+never module-init reads. Anything that must run at startup goes in `boot.js`,
+not at a module's top level — that is what caused a `BEZ_BUILTIN` temporal-
+dead-zone error during the conversion. Where a cycle would otherwise be needed
+just to notify, the callee registers a hook instead: `graph.js` calls
+`setEaseHook()` rather than importing the ease control from `panels.js`.
 
 `window.QS` exposes `S`, `R` and a few functions for console debugging.
 
@@ -50,7 +56,50 @@ action row gives the space back rather than leaving a hole. `S.hideCounts`
 blanks every engagement number while keeping the icons.
 
 **Presets** live in `localStorage` and store all of `S` except the decoded
-images and the quote text itself, so a preset is a reusable *look*.
+images and the quote text itself, so a preset is a reusable *look*. Each one
+carries a thumbnail rendered at save time; `cardThumbURL()` crops to the card
+rather than the whole 9:16 frame, because at 38px a card inside a full frame is
+a two-pixel sliver.
+
+**Timing is frame counts at the selected frame rate.** `S.dur`, `S.hold`,
+`S.hlOffset` and `S.hlDur` are frames, so 15f is 15 frames at 24, 30 or 60fps
+and the real-world duration is what changes. This used to divide by a hardcoded
+`30`, which made the `f` unit a lie everywhere except at 30fps. `frameSec(i)` in
+`layout.js` is the one frame→seconds mapping, shared by the timeline scrubber and
+every exporter, so the frame under the playhead is the frame that gets written.
+
+**Motion graph.** One canvas holds the eased 0..1 progress over its own velocity,
+sharing a frame-numbered time axis. Both handles are plotted in the *same*
+coordinate space as the curve they control — previously the curve was auto-ranged
+while the handles used a fixed `-0.4..1.9` scale, so a handle never sat on its
+own curve. The fitted range has to include the control points as well as the
+curve: `y=1.56` produces a peak of only ~1.05, so fitting to the curve alone puts
+the thing you are meant to drag off-screen. The range is frozen for the duration
+of a drag, or re-fitting slides the graph out from under the pointer.
+
+Handle values are surfaced as **Influence** and **Speed** per side, which is
+After Effects' Keyframe Velocity model and the vocabulary an editor already has.
+Both are editable and map back onto the control points exactly.
+
+**Undo/redo** snapshots `S` after activity settles rather than instrumenting each
+of the hundred-odd mutation sites — nothing can be forgotten, and coalescing
+falls out for free, so a slider drag is one step. Restoring calls
+`syncAllControls()`, which is therefore the one routine that must cover every
+control; a field left out silently shows a stale value. It also has to overwrite
+a *focused* field, which is why `syncBezFields()` takes a `force` flag: the
+don't-move-the-caret guard is right while typing and wrong on undo.
+
+**Batch export.** `batch.js` holds a queue of snapshots, each carrying its own
+output settings — format, resolution, frame rate and framing come from the card,
+not from whatever the panel shows at export time. Animated cards become one
+folder each inside the zip so it can be unpacked straight into a project folder;
+stills sit at the root. Frames repeat their folder name rather than restarting at
+a bare `0000`, so a clip stays identifiable once it is on a timeline. Folder names
+come from a token pattern (`{n}`, `{name}`, `{design}`, `{frames}`, `{fps}`,
+`{size}`, `{date}`), separators are stripped so a pattern cannot nest folders,
+and duplicate names get a numeric suffix — two cards silently overwriting each
+other inside a zip is the worst kind of bug to find later. A `_manifest.txt` at
+the root lists every folder with its settings and an import hint.
 
 **Relevance.** `RELEVANT` in `data.js` maps a control id to a test against the
 active design; anything that fails is hidden, so a card type only ever shows
@@ -139,3 +188,34 @@ properties on the exported `R` object in `data.js`.
 | PNG / JPEG still | PNG only | Thumbnails, stills |
 | GIF | 1-bit | Quick overlays, previews |
 | WebM | no | Preview only — Premiere may need a plugin |
+| Batch zip | per card | Several cards at once, one folder each |
+
+A batch zip unpacks like this:
+
+```
+shorts-ep12.zip
+  _manifest.txt
+  01_quote_odds-of-this-happening/
+    01_quote_odds-of-this-happening_0000.png
+    01_quote_odds-of-this-happening_0001.png
+  02_x-post_gta6-delay/
+    02_x-post_gta6-delay_0000.png
+  03_twitch-comment_no-way.png        ← stills need no folder
+```
+
+## Keyboard
+
+| Key | Action |
+|---|---|
+| `1`–`4` | Jump to a tab |
+| `Space` | Play / pause |
+| `←` `→` | Step one frame (`Shift` for ten) |
+| `Home` `End` | First / last frame |
+| `F` | Toggle card / full-frame framing |
+| `⌘H` / `Ctrl+H` | Highlight the selection |
+| `⌘Z` / `Ctrl+Z` | Undo (`Shift` to redo) |
+| `⌘⏎` / `Ctrl+⏎` | Export |
+
+On the motion graph: click a handle then use the arrows to nudge it, `Shift` to
+lock an axis while dragging, `Alt` to mirror the other handle, double-click to
+straighten that side.

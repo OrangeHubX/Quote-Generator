@@ -2,10 +2,11 @@
 import {$, CHEER, HIDEABLE, R, S, TWITCH_NAMES, clamp, d} from './data.js';
 import {scheduleDraw} from './state.js';
 import {wrap} from './text.js';
-import {invalidateLayout} from './layout.js';
+import {cardThumbURL, invalidateLayout} from './layout.js';
 import {snack} from './export.js';
-import {SL, applyDesign, autogrow, fillSlider, setHl, setViewChip, ta, updateFabLabel} from './ui.js';
+import {SL, applyDesign, applyRelevance, autogrow, fillSlider, setHl, setViewChip, ta, updateFabLabel} from './ui.js';
 import {drawCheer} from './card-social.js';
+import {allBez, applyCurve, builtinCount, drawCurveThumb, easeFnFor, loadBez, matchBez, saveBez, syncBezFields} from './graph.js';
 
 /* ---------- design combobox ---------- */
 const DESIGN_GROUPS=[
@@ -105,6 +106,127 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape")closeDesignPop();
 });
 
+/* ---------- generic popup binding ----------
+   The design and cheer pickers predate this and keep their own handlers; every
+   list added since shares one implementation. */
+function bindPop(hostSel,btnSel,popSel,build,pick){
+  const close=()=>{
+    const pop=$(popSel);
+    if(pop.dataset.open!=="true")return;
+    pop.dataset.open="false";$(btnSel).setAttribute("aria-expanded","false");
+  };
+  const place=()=>placePop(btnSel,popSel);
+  $(btnSel).addEventListener("click",e=>{
+    e.stopPropagation();
+    if($(popSel).dataset.open==="true"){close();return;}
+    build();place();
+    const sel=$(popSel).querySelector('[aria-selected="true"]');
+    if(sel)sel.scrollIntoView({block:"nearest"});
+  });
+  $(popSel).addEventListener("click",e=>{
+    const b=e.target.closest(".combo-opt");if(!b)return;
+    if(pick(b,e)!==false)close();
+  });
+  document.addEventListener("click",e=>{if(!e.target.closest(hostSel))close();});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")close();});
+  window.addEventListener("resize",()=>{if($(popSel).dataset.open==="true")place();});
+  $("#grip").addEventListener("pointerdown",close);
+  return {close,rebuild:()=>{if($(popSel).dataset.open==="true"){build();place();}}};
+}
+
+/* ---------- scale ease picker ---------- */
+const EASE_MODES=[["back","Overshoot"],["spring","Spring"],["smooth","Smooth"],
+  ["custom","Custom bezier"],["none","Off"]];
+export function syncEaseBtn(){
+  const row=EASE_MODES.find(m=>m[0]===S.scaleEase)||EASE_MODES[0];
+  $("#easeVal").textContent=row[1];
+  $("#overLab").textContent=S.scaleEase==="spring"?"Bounciness":"Overshoot";
+}
+function buildEasePop(){
+  const pop=$("#easePop");pop.innerHTML="";
+  for(const [v,lab] of EASE_MODES){
+    const b=document.createElement("button");
+    b.className="combo-opt";b.type="button";b.dataset.v=v;
+    b.setAttribute("role","option");b.setAttribute("aria-selected",String(v===S.scaleEase));
+    const th=document.createElement("canvas");th.className="combo-th";th.width=42;th.height=24;
+    const t=document.createElement("span");t.textContent=lab;
+    b.append(th,t);pop.appendChild(b);
+    drawCurveThumb(th,easeFnFor(v));
+  }
+}
+let easePop=null,bezPop=null;
+export function initEasePickers(){
+  easePop=bindPop("#easeCombo","#easeBtn","#easePop",buildEasePop,b=>{
+    S.scaleEase=b.dataset.v;
+    syncEaseBtn();applyRelevance();syncBezBtn();
+    invalidateLayout();scheduleDraw();
+  });
+  bezPop=bindPop("#bezCombo","#bezBtn","#bezPop",buildBezPop,(b,e)=>{
+    if(e.target.closest(".rm")){
+      /* deleting a saved curve keeps the list open — you are usually tidying up */
+      const at=+b.dataset.user;
+      const l=loadBez();l.splice(at,1);saveBez(l);
+      buildBezPop();placePop("#bezBtn","#bezPop");syncBezBtn();
+      return false;
+    }
+    applyCurve(allBez()[+b.dataset.v][1]);
+    syncEaseBtn();applyRelevance();syncBezBtn();
+    invalidateLayout();scheduleDraw();
+  });
+  syncEaseBtn();syncBezBtn();
+}
+
+/* ---------- saved curve picker ---------- */
+export function syncBezBtn(force){
+  const at=matchBez(),all=allBez();
+  const v=$("#bezVal");
+  if(v)v.textContent=at>=0?all[at][0]:"Custom";
+  const th=$("#bezThumb");
+  if(th)drawCurveThumb(th,easeFnFor("custom"));
+  syncBezFields(force);
+}
+function buildBezPop(){
+  const pop=$("#bezPop");pop.innerHTML="";
+  const all=allBez(),nb=builtinCount(),at=matchBez();
+  const head=(txt)=>{const h=document.createElement("div");h.className="combo-grp";h.textContent=txt;pop.appendChild(h);};
+  all.forEach((row,i)=>{
+    if(i===0)head("Presets");
+    if(i===nb)head("Saved");
+    const b=document.createElement("button");
+    b.className="combo-opt";b.type="button";b.dataset.v=String(i);
+    b.setAttribute("role","option");b.setAttribute("aria-selected",String(i===at));
+    const th=document.createElement("canvas");th.className="combo-th";th.width=42;th.height=24;
+    const t=document.createElement("span");t.textContent=row[0];
+    b.append(th,t);
+    if(i>=nb){
+      b.dataset.user=String(i-nb);
+      const rm=document.createElement("button");
+      rm.className="rm";rm.type="button";rm.textContent="✕";rm.title="Delete this curve";
+      b.appendChild(rm);
+    }
+    pop.appendChild(b);
+    const v=row[1];
+    drawCurveThumb(th,cubicThumb(v));
+  });
+}
+/* a standalone solver for a thumbnail's own control points, independent of S */
+function cubicThumb(v){
+  const [x1,y1,x2,y2]=v;
+  const cx=3*x1,bx=3*(x2-x1)-cx,ax=1-cx-bx;
+  const cy=3*y1,by=3*(y2-y1)-cy,ay=1-cy-by;
+  const fx=t=>((ax*t+bx)*t+cx)*t,fy=t=>((ay*t+by)*t+cy)*t,dfx=t=>(3*ax*t+2*bx)*t+cx;
+  return x=>{let t=x;for(let i=0;i<6;i++){const e=fx(t)-x;if(Math.abs(e)<1e-3)break;const dv=dfx(t);if(Math.abs(dv)<1e-6)break;t-=e/dv;}return fy(clamp(t,0,1));};
+}
+$("#bezSave").addEventListener("click",()=>{
+  const name=(prompt("Name this curve:","My curve")||"").trim();
+  if(!name)return;
+  const list=loadBez();
+  const at=list.findIndex(c=>c[0].toLowerCase()===name.toLowerCase());
+  if(at>=0)list[at]=[name,S.bezier.slice()];else list.push([name,S.bezier.slice()]);
+  saveBez(list);syncBezBtn();
+  snack((at>=0?"Updated":"Saved")+" curve “"+name+"”");
+});
+
 /* ---------- element visibility ---------- */
 const TICK='<svg class="tick" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
 export function buildShowChips(){
@@ -168,6 +290,11 @@ function applyPreset(p){
   invalidateLayout();scheduleDraw();
   snack("Applied “"+p.name+"”");
 }
+/* A preset carries a look, not content, so its thumbnail is the card as it
+   stood when saved — rendered once at save time and stored with it, because
+   re-rendering every row on every repaint would cost far more than the ~3KB. */
+const THUMB_PX=96;
+function presetThumb(){return cardThumbURL(THUMB_PX);}
 export function renderPresets(){
   const box=$("#presetList"),list=loadPresets();
   box.innerHTML="";
@@ -180,13 +307,20 @@ export function renderPresets(){
     const row=document.createElement("div");row.className="pr";
     row.dataset.on=String(p.name===activePreset);
     const nm=document.createElement("button");
-    nm.className="nm";nm.type="button";nm.textContent=p.name;
+    nm.className="nm";nm.type="button";
     nm.title="Apply this preset";
+    if(p.thumb){
+      const im=document.createElement("span");
+      im.className="th";im.style.setProperty("--th","url("+p.thumb+")");
+      nm.appendChild(im);
+    }
+    const lbl=document.createElement("span");lbl.className="lb";lbl.textContent=p.name;
+    nm.appendChild(lbl);
     nm.addEventListener("click",()=>{applyPreset(p);renderPresets();});
     const up=document.createElement("button");
     up.className="act";up.type="button";up.textContent="Update";up.title="Overwrite with current settings";
     up.addEventListener("click",()=>{
-      const l=loadPresets();l[i]={name:p.name,data:snapshot()};storePresets(l);
+      const l=loadPresets();l[i]={name:p.name,data:snapshot(),thumb:presetThumb()};storePresets(l);
       activePreset=p.name;renderPresets();snack("Updated “"+p.name+"”");
     });
     const del=document.createElement("button");
@@ -204,20 +338,21 @@ $("#presetSave").addEventListener("click",()=>{
   if(!name)return;
   const l=loadPresets();
   const at=l.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
-  const entry={name,data:snapshot()};
+  const entry={name,data:snapshot(),thumb:presetThumb()};
   if(at>=0)l[at]=entry;else l.push(entry);
   storePresets(l);activePreset=name;renderPresets();
   snack("Saved “"+name+"”");
 });
 
-/* Push every value in S back into its control. Called after applying a preset. */
-function syncAllControls(){
-  /* segmented + select groups */
-  ["theme","face","hlStyle","crop","res","bg","fps","fadeEase","scaleEase","format","mode","imgFmt","badge","avShape"]
+/* Push every value in S back into its control. Called after applying a preset
+   and after an undo, so it has to cover everything — a control left out would
+   silently show a stale value. */
+export function syncAllControls(){
+  /* segmented groups */
+  ["theme","face","hlStyle","crop","res","bg","fps","fadeEase","format","mode","imgFmt","badge","avShape"]
     .forEach(g=>{
       const host=$("#"+g);if(!host)return;
-      if(host.tagName==="SELECT")host.value=S[g];
-      else host.querySelectorAll("button[data-v]").forEach(x=>
+      host.querySelectorAll("button[data-v]").forEach(x=>
         x.setAttribute("aria-pressed",String(x.dataset.v===String(S[g]))));
     });
   /* sliders + their numeric boxes */
@@ -228,10 +363,8 @@ function syncAllControls(){
     fillSlider(el);
   });
   /* switches */
-  [["header","header"],["marks","marks"],["guides","guides"],["anim","anim"],
-   ["hlAnim","hlAnim"],["follow","follow"],["likeOn","likeOn"]].forEach(([id,k])=>{
-    const el=$("#"+id);if(el)el.checked=!!S[k];
-  });
+  ["header","marks","guides","anim","hlAnim","follow","likeOn","twReply","subBadge","modBadge"]
+    .forEach(id=>{const el=$("#"+id);if(el)el.checked=!!S[id];});
   $("#hideCounts").checked=!!S.hideCounts;
   /* text fields */
   [["text","text"],["outlet","outlet"],["url","url"],["name","name"],["handle","handle"],
@@ -240,17 +373,14 @@ function syncAllControls(){
     const el=$("#"+id);if(el&&S[k]!==undefined)el.value=S[k];
   });
   R.lastText=S.text;autogrow(ta);
-  /* dependent visibility */
-  $("#jpegQ").classList.toggle("hide",S.imgFmt!=="jpeg");
-  $("#customRow").classList.toggle("hide",S.scaleEase!=="custom");
-  $("#hlAnimRow").classList.toggle("hide",!S.hlAnim);
   $("#typeBox").style.display=S.mode==="type"?"":"none";
   $("#tapBox").style.display=S.mode==="tap"?"":"none";
   R.wordSig=null;
   setHl(S.hlColor,["#FFA8C5","#FFE566","#9BF6A5","#8BD3FF","#FF7A45"]
     .some(x=>x.toLowerCase()===String(S.hlColor).toLowerCase()));
+  syncEaseBtn();syncBezBtn(true);
   setViewChip();updateFabLabel();syncDesignBtn();
-  applyDesign();
+  applyDesign();     /* runs applyRelevance(), which owns all conditional rows */
 }
 
 /* ---------- Twitch: name colour + cheer badge picker ---------- */

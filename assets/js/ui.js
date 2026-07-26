@@ -3,9 +3,12 @@ import {$, METRICS, OUTLETS, R, RELEVANT, S, clamp, ctx, cv, d, isPhone} from '.
 import {isTextField, scheduleDraw} from './state.js';
 import {bridge, covered, remap, setRanges, subtract, trimEdges} from './text.js';
 import {invalidateLayout} from './layout.js';
-import {allBez, draw, drawCurve, loadBez, refreshBezSelect, saveBez} from './curve.js';
+import {draw} from './curve.js';
+import {applyCurve, drawGraph, setInfluence, setSpeed, syncBezFields} from './graph.js';
+import {animated, setFrame, step, toggle as togglePlay} from './timeline.js';
 import {snack} from './export.js';
-import {buildShowChips, syncTwitch} from './panels.js';
+import {buildShowChips, syncBezBtn, syncTwitch} from './panels.js';
+import {redo, undo} from './history.js';
 
 /* ---------- tap to highlight ---------- */
 export function syncWords(){
@@ -151,8 +154,16 @@ $("#hlBtn").addEventListener("click",toggleHL);
 $("#clearBtn").addEventListener("click",()=>{S.ranges=[];syncMirror();invalidateLayout();scheduleDraw();});
 $("#clearBtn2").addEventListener("click",()=>{S.ranges=[];syncMirror();invalidateLayout();scheduleDraw();});
 document.addEventListener("keydown",e=>{
-  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="h"){e.preventDefault();toggleHL();}
-  if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){e.preventDefault();$("#dl").click();}
+  if(!(e.metaKey||e.ctrlKey))return;
+  const k=e.key.toLowerCase();
+  if(k==="h"){e.preventDefault();toggleHL();}
+  else if(e.key==="Enter"){e.preventDefault();$("#dl").click();}
+  else if(k==="z"){
+    e.preventDefault();
+    const ok=e.shiftKey?redo():undo();
+    if(!ok)snack(e.shiftKey?"Nothing to redo":"Nothing to undo");
+  }
+  else if(k==="y"){e.preventDefault();if(!redo())snack("Nothing to redo");}
 });
 /* the strip is short, so fit the card into it unless the user pinned a view
    (setEditing in state.js handles the strip itself) */
@@ -319,23 +330,16 @@ export function updateFabLabel(){
   const base=FMT[S.format][0];
   $("#fabLabel").textContent=S.format==="still"?"Download "+S.imgFmt.toUpperCase():base;
   $("#fmtNote").textContent=FMT[S.format][1];
-  $("#stillFmtCard").classList.toggle("hide",S.format!=="still");
 }
-["theme","face","hlStyle","crop","res","bg","fps","fadeEase","scaleEase","format","mode","imgFmt","badge","avShape"].forEach(g=>{
+["theme","face","hlStyle","crop","res","bg","fps","fadeEase","format","mode","imgFmt","badge","avShape"].forEach(g=>{
   const host=$("#"+g);
-  /* groups with many options are <select>; the rest are segmented buttons */
-  const isSel=host.tagName==="SELECT";
-  host.addEventListener(isSel?"change":"click",e=>{
-    if(isSel)S[g]=host.value;
-    else{
-      const b=e.target.closest("button");if(!b)return;
-      [...host.querySelectorAll("button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
-      S[g]=b.dataset.v;
-    }
-    if(g==="format"){updateFabLabel();applyRelevance();}
-    if(g==="imgFmt"){$("#jpegQ").classList.toggle("hide",S.imgFmt!=="jpeg");updateFabLabel();}
-    if(g==="scaleEase"){$("#customRow").classList.toggle("hide",S.scaleEase!=="custom");$("#overLab").textContent=(S.scaleEase==="spring")?"Bounciness":"Overshoot";drawCurve();}
-    if(g==="fadeEase")drawCurve();
+  host.addEventListener("click",e=>{
+    const b=e.target.closest("button");if(!b)return;
+    [...host.querySelectorAll("button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+    S[g]=b.dataset.v;
+    if(g==="format"||g==="imgFmt")updateFabLabel();
+    /* every conditional row lives in RELEVANT, so one call covers all of them */
+    if(g==="format"||g==="imgFmt"||g==="fadeEase")applyRelevance();
     if(g==="mode"){R.wordSig=null;applyModeForDevice();}
     if(g==="theme"||g==="face"||g==="badge"||g==="avShape")invalidateLayout();
     scheduleDraw();
@@ -347,15 +351,24 @@ $("#hlColor").addEventListener("click",e=>{
 });
 $("#exportName").addEventListener("input",e=>{S.exportName=e.target.value;markFilled(e.target);});
 
-/* ---------- bezier presets (populated from boot) ---------- */
-$("#bezPreset").addEventListener("change",e=>{const b=allBez()[+e.target.value];if(b){S.bezier=b[1].slice();drawCurve();scheduleDraw();}});
-$("#bezSave").addEventListener("click",()=>{
-  const name=prompt("Name this curve (like a Premiere preset):","My curve");
-  if(!name)return;
-  const list=loadBez();list.push([name,S.bezier.slice()]);saveBez(list);
-  refreshBezSelect();$("#bezPreset").value=String(allBez().length-1);
-  snack("Saved curve “"+name+"”");
+/* ---------- graph readouts: Influence / Speed / cubic-bezier text ----------
+   Editing any of these is just another way of moving a handle, so each one goes
+   through graph.js and the graph redraws from the same state. */
+[["#infOut",1,setInfluence],["#infIn",2,setInfluence],
+ ["#spdOut",1,setSpeed],["#spdIn",2,setSpeed]].forEach(([sel,side,fn])=>{
+  const el=$(sel);if(!el)return;
+  el.addEventListener("input",()=>{const v=parseFloat(el.value);if(!isNaN(v))fn(side,v);});
+  el.addEventListener("blur",()=>syncBezFields());
 });
+$("#bezText").addEventListener("input",e=>{
+  const m=e.target.value.match(/-?\d*\.?\d+/g);
+  if(!m||m.length<4)return;
+  const v=m.slice(0,4).map(Number);
+  if(v.some(isNaN))return;
+  v[0]=clamp(v[0],0,1);v[2]=clamp(v[2],0,1);
+  applyCurve(v);syncBezBtn();
+});
+$("#bezText").addEventListener("blur",()=>syncBezFields());
 
 /* ---------- tabs (desktop rail + mobile thumb bar stay in sync) ---------- */
 function goTab(name){
@@ -382,7 +395,7 @@ document.addEventListener("keydown",e=>{
 
 /* ---------- design switch ---------- */
 /* Hide every control that the current selection cannot use. */
-function applyRelevance(){
+export function applyRelevance(){
   const P=d();
   const ctx={id:S.design,brand:P.brand||"",social:!!P.social,post:!!P.post};
   for(const key in RELEVANT){
@@ -435,21 +448,35 @@ export function applyDesign(){
   invalidateLayout();updateFabLabel();scheduleDraw();
 }
 
-/* ---------- view / play ---------- */
+/* ---------- view framing ---------- */
 export function setViewChip(){
   const b=$("#view");
-  b.setAttribute("aria-pressed",S.view==="card");
-  b.querySelector("span").textContent=S.view==="card"?"Fit frame":"Fit card";
+  const card=S.view==="card";
+  b.setAttribute("aria-pressed",String(card));
+  b.setAttribute("aria-label",card?"Fit frame":"Fit card");
+  b.setAttribute("title",card?"Show the whole 9:16 frame (F)":"Frame the card only (F)");
 }
 $("#view").addEventListener("click",()=>{S.view=S.view==="frame"?"card":"frame";R.viewPinned=true;setViewChip();scheduleDraw();});
 cv.addEventListener("click",()=>$("#view").click());
-$("#play").addEventListener("click",()=>{
-  R.playing=!R.playing;
-  const b=$("#play");
-  b.querySelector("span").textContent=R.playing?"Stop":"Play";
-  b.querySelector("svg").innerHTML=R.playing?'<rect x="6" y="6" width="12" height="12" rx="2"></rect>':'<path d="M7 4l13 8-13 8z"></path>';
-  b.setAttribute("aria-pressed",R.playing);
-  if(R.playing)R.playT0=performance.now();
-  draw();
+
+/* ---------- playback and scrubbing shortcuts ----------
+   The keys a video editor already has in their hands. Skipped while a field or
+   the graph has focus, since both use the arrows for their own purpose. */
+function typingTarget(el){
+  if(isTextField(el))return true;
+  const t=el&&el.tagName;
+  return t==="SELECT"||t==="TEXTAREA"||(el&&el.id==="curve");
+}
+document.addEventListener("keydown",e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(typingTarget(e.target))return;
+  if(e.key.toLowerCase()==="f"){e.preventDefault();$("#view").click();return;}
+  if(e.key===" "){e.preventDefault();togglePlay();draw();return;}
+  if(!animated())return;
+  const jump=e.shiftKey?10:1;
+  if(e.key==="ArrowRight"){e.preventDefault();step(jump);}
+  else if(e.key==="ArrowLeft"){e.preventDefault();step(-jump);}
+  else if(e.key==="Home"){e.preventDefault();setFrame(0);}
+  else if(e.key==="End"){e.preventDefault();setFrame(1e9);}
 });
 

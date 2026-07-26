@@ -9,8 +9,9 @@
   --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,system-ui,sans-serif;
   --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,monospace;
   --r:6px; --r-lg:9px;
-  --ctl:28px;              /* control height */
-  --lab:86px;              /* label column */
+  --ctl:30px;              /* control height */
+  --lab:94px;              /* label column */
+  --insp-w:410px;          /* the canvas is height-bound, so column width is free */
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;min-width:0}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
@@ -26,7 +27,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 *::-webkit-scrollbar-thumb:hover{background:#454b59;background-clip:content-box}
 
 /* ============ shell ============ */
-.app{display:grid;grid-template-columns:1fr 366px;height:100dvh;height:var(--vh,100dvh);overflow:hidden}
+.app{display:grid;grid-template-columns:1fr var(--insp-w);height:100dvh;height:var(--vh,100dvh);overflow:hidden}
 @media (max-width:900px){
   /* --vh tracks the visual viewport, so the shell covers exactly the visible
      area whether or not the browser shrinks the layout viewport for the
@@ -38,34 +39,47 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 }
 
 /* ---- canvas stage ---- */
-.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
-  padding:20px;min-height:0;min-width:0;overflow:hidden;background:
+.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:18px;min-height:0;min-width:0;overflow:hidden;background:
     radial-gradient(circle at 50% 38%,#15171E 0%,var(--bg) 72%)}
+/* sized by the canvas inside it, so the floating overlays can anchor to the
+   artwork rather than to the stage */
+.cwrap{position:relative;line-height:0;min-height:0}
 .viewer{line-height:0;border-radius:10px;overflow:hidden}
 #preview{display:block;cursor:zoom-in;box-shadow:0 12px 40px rgba(0,0,0,.55);
   background:conic-gradient(#22242B 25%,#191B21 0 50%,#22242B 0 75%,#191B21 0) 0 0/18px 18px}
-.tools{display:flex;gap:6px;align-items:center}
-.chip{height:27px;padding:0 10px;border-radius:var(--r);border:1px solid var(--line);
-  background:var(--panel);color:var(--fg-2);font-size:12px;font-weight:500;cursor:pointer;
-  display:inline-flex;align-items:center;gap:6px;transition:background .1s,color .1s}
-.chip:hover{background:var(--input-hi);color:var(--fg)}
-.chip svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.chip[aria-pressed=true]{background:var(--acc-soft);color:var(--acc);border-color:transparent}
-.readout{display:flex;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--fg-3)}
-.readout b{color:var(--fg-2);font-weight:500}
-.readout b.warn{color:var(--warn)}
+
+/* ---- floating canvas controls ---- */
+.ovl{position:absolute;display:flex;gap:5px;line-height:1;z-index:2}
+.ovl-tl{top:8px;left:8px;flex-direction:column;align-items:flex-start;pointer-events:none}
+.ovl-tr{top:8px;right:8px}
+.badge{font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--fg-2);
+  background:rgba(11,12,15,.62);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.07);
+  border-radius:5px;padding:3px 6px}
+.badge.dim{color:var(--fg-3)}
+.badge b{color:var(--fg-2);font-weight:500}
+.badge b.warn{color:var(--warn)}
+.fab{width:30px;height:30px;padding:0;border-radius:8px;cursor:pointer;display:grid;place-items:center;
+  color:var(--fg-2);background:rgba(11,12,15,.62);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.07)}
+.fab:hover{background:rgba(37,41,50,.9);color:var(--fg)}
+.fab svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#play svg{fill:currentColor;stroke:none}
+.fab[aria-pressed=true]{background:var(--acc);border-color:transparent;color:var(--acc-ink)}
+
+/* ---- frame timeline ---- */
+.tl{flex:none;display:flex;align-items:center;gap:8px;width:100%;max-width:560px}
+#tlBar{flex:1;min-width:0;height:34px;display:block;touch-action:none;cursor:ew-resize;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.tl-read{flex:none;height:26px;padding:0 8px;border-radius:var(--r);border:1px solid var(--line);
+  background:var(--panel);color:var(--fg-3);font-family:var(--mono);font-size:10.5px;cursor:pointer}
+.tl-read:hover{background:var(--input-hi);color:var(--fg-2)}
+.tl-read b{color:var(--fg);font-weight:500}
 
 /* ---- inspector ---- */
 .insp{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-left:1px solid var(--line)}
 .insp-top{flex:none;display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
 .insp-top .mark{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--fg-2);flex:none}
-select.sel{flex:1;height:var(--ctl);background:var(--input);border:1px solid var(--line);border-radius:var(--r);
-  color:var(--fg);padding:0 8px;font-size:12.5px;font-weight:500;cursor:pointer;
-  appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--fg-3) 50%),linear-gradient(135deg,var(--fg-3) 50%,transparent 50%);
-  background-position:calc(100% - 14px) 12px,calc(100% - 9px) 12px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-select.sel:hover{background-color:var(--input-hi)}
-select.sel:focus-visible{outline:2px solid var(--acc);outline-offset:-1px}
-
 .tabs{flex:none;display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid var(--line)}
 .tabs button{flex:1;height:28px;background:none;border:0;border-radius:var(--r);color:var(--fg-3);
   font-size:12px;font-weight:600;cursor:pointer;transition:background .1s,color .1s}
@@ -84,15 +98,20 @@ select.sel:focus-visible{outline:2px solid var(--acc);outline-offset:-1px}
 #dl svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 
 /* ============ dense rows ============ */
-.cap{display:flex;align-items:center;gap:8px;margin:14px 12px 7px;font-size:10px;font-weight:700;
+.cap{display:flex;align-items:center;gap:8px;margin:18px 14px 8px;font-size:10px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;color:var(--fg-3)}
 .cap::after{content:"";flex:1;height:1px;background:var(--line)}
-.cap:first-child{margin-top:11px}
+.cap:first-child{margin-top:12px}
 
-.row{display:grid;grid-template-columns:var(--lab) 1fr;align-items:center;gap:9px;
-  padding:2px 12px;min-height:30px}
-.row.sl{grid-template-columns:var(--lab) 1fr 44px 20px}
+.row{display:grid;grid-template-columns:var(--lab) 1fr;align-items:center;gap:10px;
+  padding:3px 14px;min-height:33px}
+.row.sl{grid-template-columns:var(--lab) 1fr 46px 20px}
 .row.wide{grid-template-columns:1fr}
+/* two numeric fields sharing a row — the Influence / Speed pairs */
+.row.duo{grid-template-columns:var(--lab) 1fr 1fr}
+.fld{display:flex;align-items:center;gap:5px}
+.fld .num{text-align:right}
+.fld i{font-family:var(--mono);font-size:10.5px;color:var(--fg-3);font-style:normal;flex:none;width:9px}
 .row>label,.row>.rl{font-size:11.5px;color:var(--fg-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row.stack{display:block;padding:3px 12px}
 .row.stack>label{display:block;margin-bottom:5px}
@@ -128,6 +147,8 @@ select.sel:focus-visible{outline:2px solid var(--acc);outline-offset:-1px}
 .taMirror mark{background:rgba(125,147,255,.22);color:transparent;border-radius:3px;
   box-shadow:0 1px 0 rgba(125,147,255,.55) inset,0 -1px 0 rgba(125,147,255,.55) inset}
 .txt.mono{font-family:var(--mono);text-transform:uppercase}
+/* hex wants uppercase; a cubic-bezier() literal does not */
+.txt.mono.lc{text-transform:none}
 
 /* numeric field beside a slider */
 .num{width:100%;height:24px;background:var(--input);border:1px solid var(--line);border-radius:5px;
@@ -143,7 +164,10 @@ select.sel:focus-visible{outline:2px solid var(--acc);outline-offset:-1px}
 .btn:hover{background:var(--input-hi)}
 .btn.ghost{background:none;border-color:transparent;color:var(--acc)}
 .btn.ghost:hover{background:var(--acc-soft)}
+.btn.sq{width:var(--ctl);height:var(--ctl);padding:0;justify-content:center;flex:none}
 .btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+/* a row whose control is a combo plus a square action button */
+.row:has(>.combo+.btn.sq){grid-template-columns:var(--lab) 1fr auto}
 
 /* segmented */
 .seg{display:flex;height:var(--ctl);background:var(--input);border:1px solid var(--line);
@@ -227,10 +251,11 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
   max-width:100%;overflow-wrap:anywhere;text-align:left}
 .w.on{background:var(--hl);color:#101014;border-color:var(--hl);font-weight:650}
 
-/* bezier graph */
-#curve{width:100%;height:132px;display:block;background:var(--input);border:1px solid var(--line);
-  border-radius:var(--r);touch-action:none;cursor:crosshair}
-.gwrap{padding:3px 12px}
+/* motion graph: value curve stacked over its velocity */
+#curve{width:100%;height:198px;display:block;background:var(--input);border:1px solid var(--line);
+  border-radius:var(--r);touch-action:none;cursor:crosshair;outline:none}
+#curve:focus-visible{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+.gwrap{padding:3px 14px}
 
 /* ---- custom design combobox (replaces the native select) ---- */
 .combo{position:relative;flex:1;min-width:0}
@@ -260,6 +285,14 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .combo-opt:hover{background:var(--input-hi)}
 .combo-opt[aria-selected=true]{background:var(--acc-soft);color:var(--acc);font-weight:600}
 .combo-opt .cd{width:7px;height:7px;border-radius:50%;flex:none}
+/* curve thumbnails: the shape is quicker to read than the name */
+.combo-th{flex:none;width:42px;height:24px;display:block;border-radius:4px;background:var(--bg)}
+.combo-opt .combo-th{background:rgba(0,0,0,.35)}
+.combo-opt .rm{margin-left:auto;flex:none;background:none;border:0;color:var(--fg-3);
+  font-size:13px;line-height:1;padding:2px 4px;border-radius:4px;cursor:pointer;opacity:0}
+.combo-opt:hover .rm,.combo-opt:focus-within .rm{opacity:1}
+.combo-opt .rm:hover{color:var(--warn);background:var(--line)}
+.txt.sm{height:26px;font-size:11px;padding:0 7px}
 
 /* ---- cheer badge picker ---- */
 .cheerpick{position:relative;flex:1;min-width:0}
@@ -293,10 +326,11 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 /* ---- presets ---- */
 .presets{display:flex;flex-direction:column;gap:4px;padding:2px 12px}
 .presets .pr{display:flex;align-items:center;gap:7px;background:var(--input);
-  border:1px solid var(--line);border-radius:var(--r);padding:0 4px 0 9px;height:32px}
+  border:1px solid var(--line);border-radius:var(--r);padding:0 4px 0 5px;height:48px}
 .presets .pr:hover{background:var(--input-hi)}
 .presets .pr .nm{flex:1;min-width:0;background:none;border:0;text-align:left;cursor:pointer;
-  font-size:12.5px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:100%}
+  display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--fg);height:100%;padding:0}
+.presets .pr .nm .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .presets .pr[data-on=true]{border-color:var(--acc)}
 .presets .pr[data-on=true] .nm{color:var(--acc);font-weight:600}
 .presets .pr .act{background:none;border:0;color:var(--fg-3);cursor:pointer;font-size:11px;
@@ -304,6 +338,39 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .presets .pr .act:hover{color:var(--fg);background:var(--line)}
 .presets .pr .act.del:hover{color:var(--warn)}
 .presets .empty{font-size:11px;color:var(--fg-3);padding:3px 0}
+
+/* ---- batch queue ---- */
+.pill{flex:none;font-family:var(--mono);font-size:9.5px;font-weight:600;color:var(--acc);
+  background:var(--acc-soft);border-radius:9px;padding:1px 6px;order:1}
+.pill:empty{display:none}
+.bqlist{display:flex;flex-direction:column;gap:4px;padding:2px 14px}
+.bqlist .empty{font-size:11px;color:var(--fg-3);padding:3px 0}
+.bq{display:flex;align-items:center;gap:8px;background:var(--input);border:1px solid var(--line);
+  border-radius:var(--r);padding:5px 5px 5px 6px}
+.bq:hover{background:var(--input-hi)}
+/* Thumbnails are cropped to the card, and contained rather than covered, so a
+   wide chat card and a tall quote card both read in the same box. The checker is
+   a second background *layer* rather than a pseudo-element: a negative z-index
+   child paints above its parent's background, so it covered the thumbnail. The
+   image URL arrives as --th so the layer order stays owned by the stylesheet. */
+.bq .th,.presets .pr .nm .th{flex:none;width:38px;height:38px;border-radius:4px;
+  border:1px solid var(--line);
+  background-image:var(--th,none),conic-gradient(#22242B 25%,#191B21 0 50%,#22242B 0 75%,#191B21 0);
+  background-size:contain,7px 7px;
+  background-position:center,0 0;
+  background-repeat:no-repeat,repeat}
+.bq .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bq .nmf{width:100%;height:22px;text-align:left;font-family:var(--ui);font-size:12px}
+.bq .mid small{font-family:var(--mono);font-size:9.5px;color:var(--fg-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bq .acts{flex:none;display:flex;align-items:center;gap:1px}
+.bq .act{background:none;border:0;color:var(--fg-3);cursor:pointer;font-size:10.5px;
+  padding:4px 4px;border-radius:4px;line-height:1}
+.bq .act:hover{color:var(--fg);background:var(--line)}
+.bq .act.del:hover{color:var(--warn)}
+#batchPreview{color:var(--acc);word-break:break-all}
+#batchPreview:empty{display:none}
+.note.mono{font-family:var(--mono);font-size:10px}
 
 /* ---- drag grip (mobile only) ---- */
 .grip{display:none}
@@ -318,21 +385,24 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 
 /* ============ mobile: vertical-first ============ */
 @media (max-width:900px){
-  :root{--ctl:34px;--lab:78px}
+  :root{--ctl:34px;--lab:84px}
   .app{display:flex;flex-direction:column}
   /* The canvas height is the one knob: dragging the grip changes it, and the
      editor simply takes whatever is left. Heights come from --vh, never static
      vh, so the keyboard cannot squeeze the controls out of view. */
-  .stage{flex:none;height:var(--canvasH,40vh);padding:10px 12px 6px;gap:8px;background:none;
+  .stage{flex:none;height:var(--canvasH,40vh);padding:10px 12px 6px;gap:7px;background:none;
     transition:height .2s cubic-bezier(.2,0,0,1)}
   .app[data-drag=true] .stage{transition:none}
   .app[data-sheet=full] .stage{padding:0}
-  .app[data-sheet=full] .stage .tools,
-  .app[data-sheet=full] .stage .readout{display:none}
-  /* while a field is focused the canvas becomes a short live strip */
+  .app[data-sheet=full] .stage .ovl,
+  .app[data-sheet=full] .stage .tl{display:none}
+  /* while a field is focused the canvas becomes a short live strip — the
+     overlays and the ruler would not fit and are not needed mid-typing */
   :root[data-kb="1"] .stage{height:96px;padding:6px 12px 2px;gap:0}
-  :root[data-kb="1"] .stage .tools,
-  :root[data-kb="1"] .stage .readout{display:none}
+  :root[data-kb="1"] .stage .ovl,
+  :root[data-kb="1"] .stage .tl{display:none}
+  #tlBar{height:30px}
+  .fab{width:34px;height:34px}
 
   /* ---- drag grip ---- */
   .grip{display:flex;flex:none;align-items:center;justify-content:center;
@@ -354,10 +424,20 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
   .tabs{display:none}                 /* moved to the thumb zone */
   .insp-foot{display:none}            /* download lives in the bottom bar */
   .pages{padding-bottom:10px}
-  .row{min-height:36px;padding:3px 11px}
-  .row.sl{grid-template-columns:var(--lab) 1fr 46px 20px}
-  .cap{margin:15px 11px 7px}
-  .note,.drop,.words,.gwrap,.ac{margin-left:11px;margin-right:11px}
+  .row{min-height:38px;padding:3px 12px}
+  .row.sl{grid-template-columns:var(--lab) 1fr 48px 20px}
+  .row.duo{grid-template-columns:var(--lab) 1fr 1fr}
+  /* the queue rows carry five actions each — give them real touch targets and
+     let them wrap under the name rather than squeezing it to nothing */
+  .bq{flex-wrap:wrap;padding:6px}
+  .bq .mid{flex:1 1 60%}
+  .bq .nmf{height:30px}
+  .bq .acts{flex:1 0 100%;justify-content:flex-end;gap:2px;
+    border-top:1px solid var(--line);padding-top:5px;margin-top:2px}
+  .bq .act{min-width:34px;min-height:32px;font-size:11.5px}
+  .bq .th{width:44px;height:44px}
+  .cap{margin:16px 12px 8px}
+  .note,.drop,.words,.gwrap,.ac{margin-left:12px;margin-right:12px}
   .note{padding-left:0;padding-right:0}
   input[type=range]{height:34px}
   input[type=range]::-webkit-slider-thumb{width:17px;height:17px;margin-top:-6.5px}
@@ -410,10 +490,10 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .row,.cap,.drop,.note{animation:rowIn .18s ease both}
 
 /* generic press feedback */
-.btn,.chip,.seg button,.chips button,.combo-btn,.cap-btn,.presets .pr .act,#dl,.mbar .mt,.mbar .go{
+.btn,.seg button,.chips button,.combo-btn,.cap-btn,.presets .pr .act,#dl,.mbar .mt,.mbar .go{
   transition:background var(--t) ease,color var(--t) ease,border-color var(--t) ease,
              transform .1s var(--e-out),box-shadow var(--t) ease,opacity var(--t) ease}
-.btn:active,.chip:active,.chips button:active,.combo-btn:active,.cap-btn:active,#dl:active,.mbar .go:active{transform:scale(.96)}
+.btn:active,.chips button:active,.combo-btn:active,.cap-btn:active,#dl:active,.mbar .go:active{transform:scale(.96)}
 .seg button:active{transform:scale(.94)}
 .mbar .mt:active{transform:scale(.93)}
 
@@ -463,6 +543,14 @@ input[type=range]:active::-webkit-slider-thumb{transform:scale(1.25)}
 /* canvas fades in on first paint so it does not flash */
 @keyframes viewerIn{from{opacity:0}to{opacity:1}}
 .viewer{animation:viewerIn .3s ease both}
+
+/* floating tools and the ruler settle in rather than appearing */
+@keyframes ovlIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.ovl{animation:ovlIn .24s var(--e-out) both}
+.tl:not(.hide){animation:ovlIn .22s var(--e-out) both}
+.fab,.tl-read{transition:background var(--t) ease,color var(--t) ease,
+              border-color var(--t) ease,transform .1s var(--e-out)}
+.fab:active,.tl-read:active{transform:scale(.93)}
 
 /* the grip reacts to grabbing */
 .grip span{transition:background .14s ease,width .16s var(--e-snap),height .14s ease}

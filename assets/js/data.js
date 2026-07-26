@@ -194,9 +194,17 @@ export const RELEVANT={
   timingCap:   x=>S.anim||S.hlAnim,
   durRow:      x=>S.anim,
   holdRow:     x=>S.anim||S.hlAnim,
+  gwrap:       x=>S.anim||S.hlAnim,               /* nothing to graph otherwise */
+  curveInfo:   x=>S.anim||S.hlAnim,
   curvesGroup: x=>S.anim,
+  customRow:   x=>S.anim&&S.scaleEase==="custom",
+  sFromRow:    x=>S.anim&&S.scaleEase!=="none",    /* no scale, nothing to scale from */
+  overRow:     x=>S.anim&&(S.scaleEase==="back"||S.scaleEase==="spring"),
+  hlAnimRow:   x=>S.hlAnim,
   /* --- export --- */
-  fpsRow:      x=>S.format!=="still"                /* a still has no frame rate */
+  fpsRow:      x=>S.format!=="still",              /* a still has no frame rate */
+  stillFmtCard:x=>S.format==="still",              /* frames/webm/gif pick their own codec */
+  jpegQ:       x=>S.format==="still"&&S.imgFmt==="jpeg"
 };
 
 export const $=s=>document.querySelector(s);
@@ -207,6 +215,7 @@ export const R={
   lastText:S.text,   /* last committed textarea value, for range remapping */
   playing:false,     /* preview loop running */
   playT0:0,          /* preview loop start time */
+  frame:1e9,         /* playhead; clamped to the last frame on the first draw */
   editing:false,     /* a text field has focus */
   viewPinned:false,  /* user chose the fit mode explicitly */
   urlAuto:true,      /* URL field still auto-filled from the outlet */
@@ -215,6 +224,9 @@ export const R={
 export const isPhone=()=>window.matchMedia("(max-width:900px)").matches;
 export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function d(){return DESIGNS[S.design];}
+/* look up any design, not just the active one — batch rows describe cards that
+   are not currently loaded */
+export function designOf(id){return DESIGNS[id]||DESIGNS.quote;}
 export function themeKey(){return S.theme==="dark"?"dark":"light";}
 export function brandPal(){return BRAND[d().brand][themeKey()];}
 
