@@ -1,10 +1,11 @@
 /* panels.js — Design combobox, element visibility chips and saved presets. */
-import {$, HIDEABLE, R, S, d} from './data.js';
+import {$, CHEER, HIDEABLE, R, S, TWITCH_NAMES, d} from './data.js';
 import {scheduleDraw} from './state.js';
 import {wrap} from './text.js';
 import {invalidateLayout} from './layout.js';
 import {snack} from './export.js';
 import {SL, applyDesign, autogrow, fillSlider, setHl, setViewChip, ta, updateFabLabel} from './ui.js';
+import {drawCheer} from './card-social.js';
 
 /* ---------- design combobox ---------- */
 const DESIGN_GROUPS=[
@@ -13,7 +14,8 @@ const DESIGN_GROUPS=[
   ["Reddit",   "#FF4500",[["reddit-post","Post"],["reddit-comment","Comment"]]],
   ["YouTube",  "#FF0033",[["yt-comment","Comment"]]],
   ["Facebook", "#1877F2",[["fb-post","Post"],["fb-comment","Comment"]]],
-  ["Instagram","#E1306C",[["ig-post","Post"],["ig-comment","Comment"]]]
+  ["Instagram","#E1306C",[["ig-post","Post"],["ig-comment","Comment"]]],
+  ["Twitch",   "#9147FF",[["twitch-comment","Chat message"]]]
 ];
 function designLabel(id){
   for(const [g,col,items] of DESIGN_GROUPS)
@@ -239,4 +241,109 @@ function syncAllControls(){
     .some(x=>x.toLowerCase()===String(S.hlColor).toLowerCase()));
   setViewChip();updateFabLabel();syncDesignBtn();
   applyDesign();
+}
+
+/* ---------- Twitch: name colour + cheer badge picker ---------- */
+/* Each swatch/option is a tiny canvas drawn by the same code that renders the
+   badge onto the card, so the picker cannot drift from the output. */
+function cheerTile(tier,px){
+  const cv=document.createElement("canvas");
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=px*dpr;cv.height=px*dpr;
+  cv.style.width=px+"px";cv.style.height=px+"px";
+  const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);
+  if(tier==="off"){
+    c.strokeStyle="#4A5060";c.lineWidth=1.4;
+    c.beginPath();c.moveTo(px*0.25,px*0.75);c.lineTo(px*0.75,px*0.25);c.stroke();
+  }else drawCheer(c,tier,0,0,px);
+  return cv;
+}
+function syncCheerBtn(){
+  const row=CHEER.find(t=>t[0]===S.cheer);
+  $("#cheerVal").textContent=row?row[1]:"Off";
+  const sw=$("#cheerSw");sw.innerHTML="";
+  sw.appendChild(cheerTile(S.cheer||"off",16));
+}
+function buildCheerPop(){
+  const pop=$("#cheerPop");pop.innerHTML="";
+  const mk=(tier,label)=>{
+    const b=document.createElement("button");
+    b.className="cheer-opt";b.type="button";b.dataset.v=tier;
+    b.setAttribute("role","option");
+    b.setAttribute("aria-selected",String(tier===(S.cheer||"off")));
+    const t=document.createElement("span");t.textContent=label;
+    b.append(cheerTile(tier,20),t);pop.appendChild(b);
+  };
+  mk("off","Off");
+  CHEER.forEach(([tier,label])=>mk(tier,label));
+}
+function placeCheerPop(){
+  const btn=$("#cheerBtn"),pop=$("#cheerPop"),bar=$(".mbar");
+  const r=btn.getBoundingClientRect(),M=8,GAP=6,vh=window.innerHeight;
+  const floor=(bar&&bar.offsetHeight>0)?bar.getBoundingClientRect().top:vh;
+  const below=floor-r.bottom-GAP-M,above=r.top-GAP-M;
+  const up=below<Math.min(200,above);
+  const room=Math.max(120,Math.floor(up?above:below));
+  pop.style.maxHeight="none";pop.style.width=Math.round(r.width)+"px";
+  pop.style.left=Math.round(r.left)+"px";
+  pop.style.top="0px";pop.style.bottom="auto";pop.style.visibility="hidden";
+  pop.dataset.open="true";
+  pop.style.maxHeight=Math.min(pop.scrollHeight,room)+"px";
+  if(up){pop.style.top="auto";pop.style.bottom=Math.round(vh-r.top+GAP)+"px";}
+  else{pop.style.bottom="auto";pop.style.top=Math.round(r.bottom+GAP)+"px";}
+  pop.dataset.dir=up?"up":"down";pop.style.visibility="";
+}
+function closeCheerPop(){
+  const pop=$("#cheerPop");
+  if(pop.dataset.open!=="true")return;
+  pop.dataset.open="false";$("#cheerBtn").setAttribute("aria-expanded","false");
+}
+$("#cheerBtn").addEventListener("click",e=>{
+  e.stopPropagation();
+  if($("#cheerPop").dataset.open==="true"){closeCheerPop();return;}
+  buildCheerPop();placeCheerPop();
+  $("#cheerBtn").setAttribute("aria-expanded","true");
+});
+$("#cheerPop").addEventListener("click",e=>{
+  const b=e.target.closest(".cheer-opt");if(!b)return;
+  S.cheer=b.dataset.v;closeCheerPop();syncCheerBtn();
+  invalidateLayout();scheduleDraw();
+});
+document.addEventListener("click",e=>{if(!e.target.closest("#cheerPick"))closeCheerPop();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeCheerPop();});
+window.addEventListener("resize",()=>{if($("#cheerPop").dataset.open==="true")placeCheerPop();});
+$("#grip").addEventListener("pointerdown",closeCheerPop);
+
+export function buildNameColors(){
+  const box=$("#nameColor");if(box.childElementCount)return;
+  TWITCH_NAMES.forEach(col=>{
+    const b=document.createElement("button");
+    b.type="button";b.dataset.v=col;b.style.background=col;
+    box.appendChild(b);
+  });
+  const pick=document.createElement("span");
+  pick.className="pick";
+  pick.innerHTML='<input type="color" id="namePick" aria-label="Custom name colour">';
+  box.appendChild(pick);
+  $("#namePick").value=S.nameColor;
+  $("#namePick").addEventListener("input",e=>setNameColor(e.target.value,false));
+}
+function setNameColor(col,fromPreset){
+  S.nameColor=col;
+  $("#nameColor").querySelectorAll("button[data-v]").forEach(b=>
+    b.setAttribute("aria-pressed",String(b.dataset.v.toLowerCase()===col.toLowerCase())));
+  const np=$("#namePick");if(np)np.value=col;
+  invalidateLayout();scheduleDraw();
+}
+$("#nameColor").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-v]");if(!b)return;
+  setNameColor(b.dataset.v,true);
+});
+["subBadge","modBadge"].forEach(id=>$("#"+id).addEventListener("change",e=>{
+  S[id]=e.target.checked;invalidateLayout();scheduleDraw();
+}));
+export function syncTwitch(){
+  buildNameColors();syncCheerBtn();
+  setNameColor(S.nameColor,true);
+  $("#subBadge").checked=!!S.subBadge;$("#modBadge").checked=!!S.modBadge;
 }

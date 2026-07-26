@@ -68,11 +68,18 @@ maximum made the sheet drift on its own — sometimes into the parked state. For
 the same reason the resize handler ignores height-only changes, and the parked
 state must never set `pointer-events:none` or the editor could be stranded.
 
-**Keyboard and the viewport.** `interactive-widget=resizes-content` in the
-viewport meta makes the keyboard shrink the *layout* viewport, so `height:100%`
-is exactly the visible area and no gap can open below the nav bar. The body also
-takes the nav bar colour, so a browser that ignores the flag shows a blending
-strip rather than a black band.
+**Keyboard and the viewport.** The shell is sized from `--vh`, which tracks the
+*visual* viewport, so it covers exactly the visible area whether or not the
+browser honours `interactive-widget=resizes-content`. `html`/`body` also carry
+the nav bar colour, so even a rounding-sized sliver behind the shell is
+invisible rather than a black band.
+
+Only fields that actually raise a keyboard may set `data-kb`. A checkbox, radio
+or range also takes focus when tapped, and treating those as "editing" collapsed
+the canvas on every toggle — which expanded the editor and, while the strip
+height was `!important`, made the drag grip look dead. `isTextField()` in
+`state.js` is the single gate; keep the strip rule free of `!important` so the
+drag can never be silently overridden.
 
 **Design list placement.** The combobox popup is `position:fixed` and placed by
 `placeDesignPop()` against the live viewport, using the top of the mobile nav bar
@@ -81,6 +88,14 @@ so it always scrolls internally. Absolute positioning let it clip outside the
 editor with no way to reach it. Nothing in the popup's ancestor chain may set
 `opacity` below 1 — that both tints the popup and traps its `z-index` in a new
 stacking context, which is why the parked state dims only `.pages`.
+
+**Twitch chat card.** `twitch-comment` renders badges, the coloured username and
+the message as one flowing line by reusing the first-line indent from the
+Instagram caption. Cheer badges are drawn, not fetched: `CHEER` in `data.js`
+lists the 18 tiers, and `drawCheer()` paints a tile plus a glyph whose point
+count climbs with the tier — coloured tile with a dark glyph below 200k, indigo
+tile with a coloured glyph above it. The picker renders each option with the
+same function, so the list can never drift from the output.
 
 **Images.** `drawFitted()` covers the box first, then applies zoom and pan. Zoom
 starts at 100% = exact cover, so the pan clamps to the resulting slack and an

@@ -51,7 +51,8 @@ const DESIGNS={
   "fb-post":     {social:true,brand:"fb",post:true},
   "fb-comment":  {social:true,brand:"fb",post:false},
   "ig-post":     {social:true,brand:"ig",post:true},
-  "ig-comment":  {social:true,brand:"ig",post:false}
+  "ig-comment":  {social:true,brand:"ig",post:false},
+  "twitch-comment":{social:true,brand:"twitch",post:false}
 };
 /* per-brand palette keyed by light/dark */
 const BRAND={
@@ -64,8 +65,38 @@ const BRAND={
   fb:{light:{bg:"#FFFFFF",ink:"#050505",sub:"#65676B",rule:"#CED0D4",accent:"#1877F2",badge:"#1877F2",like:"#1877F2",rt:"#65676B"},
      dark :{bg:"#242526",ink:"#E4E6EB",sub:"#B0B3B8",rule:"#3E4042",accent:"#2D88FF",badge:"#2D88FF",like:"#2D88FF",rt:"#B0B3B8"}},
   ig:{light:{bg:"#FFFFFF",ink:"#000000",sub:"#737373",rule:"#DBDBDB",accent:"#0095F6",badge:"#3897F0",like:"#FF3040",rt:"#737373"},
-     dark :{bg:"#000000",ink:"#FAFAFA",sub:"#A8A8A8",rule:"#262626",accent:"#0095F6",badge:"#3897F0",like:"#FF3040",rt:"#A8A8A8"}}
+     dark :{bg:"#000000",ink:"#FAFAFA",sub:"#A8A8A8",rule:"#262626",accent:"#0095F6",badge:"#3897F0",like:"#FF3040",rt:"#A8A8A8"}},
+  twitch:{light:{bg:"#FFFFFF",ink:"#0E0E10",sub:"#53535F",rule:"#E5E5E8",accent:"#9147FF",badge:"#9147FF",like:"#9147FF",rt:"#53535F"},
+     dark :{bg:"#18181B",ink:"#EFEFF1",sub:"#ADADB8",rule:"#2F2F35",accent:"#BF94FF",badge:"#9147FF",like:"#BF94FF",rt:"#ADADB8"}}
 };
+
+/* Cheer badge tiers. Below 200k the tile is the tier colour with a dark glyph;
+   from 200k up the tile is indigo and the glyph carries the colour. The glyph
+   gains points as the tier climbs, matching Twitch's set. */
+export const CHEER_INDIGO="#3B2A72";
+export const CHEER=[
+  ["1",       "1 Bit",         "#CDCDD3",{shape:"tri"}],
+  ["100",     "100 Bits",      "#C18CFF",{shape:"diamond"}],
+  ["1000",    "1,000 Bits",    "#4FE3B0",{shape:"pent"}],
+  ["5000",    "5,000 Bits",    "#48A9FF",{shape:"hex"}],
+  ["10000",   "10,000 Bits",   "#FF3A3A",{shape:"star6"}],
+  ["25000",   "25,000 Bits",   "#FF74B8",{shape:"star6"}],
+  ["50000",   "50,000 Bits",   "#FF9B2E",{shape:"star6"}],
+  ["75000",   "75,000 Bits",   "#00C853",{shape:"star6"}],
+  ["100000",  "100,000 Bits",  "#FFD400",{shape:"star6"}],
+  ["200000",  "200,000 Bits",  "#C9C9D1",{shape:"star8",inv:true}],
+  ["300000",  "300,000 Bits",  "#C18CFF",{shape:"star8",inv:true}],
+  ["400000",  "400,000 Bits",  "#4FE3B0",{shape:"star8",inv:true}],
+  ["500000",  "500,000 Bits",  "#48A9FF",{shape:"star8",inv:true}],
+  ["600000",  "600,000 Bits",  "#FF3A3A",{shape:"star8",inv:true}],
+  ["700000",  "700,000 Bits",  "#FF74B8",{shape:"star8",inv:true}],
+  ["800000",  "800,000 Bits",  "#FF9B2E",{shape:"star8",inv:true}],
+  ["900000",  "900,000 Bits",  "#00E15C",{shape:"star8",inv:true}],
+  ["1000000", "1,000,000 Bits","#FFD400",{shape:"star8",inv:true}]
+];
+/* Twitch's default name colours */
+export const TWITCH_NAMES=["#FF0000","#0000FF","#008000","#B22222","#FF7F50","#9ACD32",
+  "#FF4500","#2E8B57","#DAA520","#D2691E","#5F9EA0","#1E90FF","#FF69B4","#8A2BE2","#00FF7F"];
 export const AVCOL=["#1D9BF0","#FF4500","#7B61FF","#00BA7C","#F91880","#FF7A45","#0095F6","#E1306C"];
 
 /* metric fields shown per brand */
@@ -74,7 +105,8 @@ export const METRICS={
   reddit:[["likes","Upvotes","3.1K"],["replies","Comments","214"]],
   yt:[["likes","Likes","1.2K"],["replies","Replies","48"]],
   fb:[["likes","Likes","842"],["replies","Comments","96"],["retweets","Shares","23"]],
-  ig:[["likes","Likes","5,204"],["replies","Comments","25"],["retweets","Reshares","452"]]
+  ig:[["likes","Likes","5,204"],["replies","Comments","25"],["retweets","Reshares","452"]],
+  twitch:[]
 };
 
 export const S={
@@ -96,6 +128,8 @@ export const S={
   /* image framing: 100% = exact cover, pan is -100..100 of the available slack */
   avatarScale:100,avatarX:0,avatarY:0,
   mediaScale:100,mediaX:0,mediaY:0,
+  /* twitch */
+  nameColor:"#00C7AC",cheer:"off",subBadge:true,modBadge:false,
   /* per-element visibility — anything false is simply not drawn, and the
      layout closes the gap so you get the space back */
   hidden:{},
@@ -116,7 +150,8 @@ export const HIDEABLE=[
   ["likes",   "Likes / votes",   ()=>true],
   ["views",   "Views",           b=>b==="x"],
   ["bookmark","Bookmark + share",b=>b==="x"],
-  ["actions", "Action row",      b=>b==="fb"||b==="ig"||b==="yt"||b==="reddit"]
+  ["actions", "Action row",      b=>b==="fb"||b==="ig"||b==="yt"||b==="reddit"],
+  ["badges",  "Chat badges",     b=>b==="twitch"]
 ];
 /* is an element visible? */
 export function V_ON(key){return !S.hidden[key];}
@@ -126,15 +161,17 @@ export function V_ON(key){return !S.hidden[key];}
    Each test gets {id, brand, social, post} for the active design. */
 export const RELEVANT={
   /* --- account --- */
-  nameRow:     x=>x.social&&x.brand!=="reddit",     /* reddit shows r/sub and u/user */
+  nameRow:     x=>x.social&&x.brand!=="reddit"&&x.brand!=="twitch",
   handleRow:   x=>x.social&&x.brand!=="fb",         /* facebook shows a display name only */
-  subRow:      x=>x.brand==="reddit"||x.id==="x-reply",
+  twitchCard:  x=>x.brand==="twitch",
+  subRow:      x=>x.brand==="reddit"||x.id==="x-reply"||x.brand==="twitch",
   audioRow:    x=>x.id==="ig-post",
-  badgeRow:    x=>x.social&&x.brand!=="yt"&&x.brand!=="reddit",
+  badgeRow:    x=>x.social&&x.brand!=="yt"&&x.brand!=="reddit"&&x.brand!=="twitch",
   avShapeRow:  x=>x.brand==="x",
   followRow:   x=>x.id==="fb-post"||x.id==="ig-post",
   likeRow:     x=>x.brand==="x"||x.brand==="ig",    /* only these fill on like */
-  avatarDrop:  x=>x.social,
+  avatarFrameGate: x=>false,
+  avatarDrop:  x=>x.social&&x.brand!=="twitch",   /* chat has no inline avatars */
   /* --- media --- */
   mediaDrop:   x=>["x-post","x-reply","reddit-post","fb-post","ig-post"].indexOf(x.id)>=0,
   mediaSrcRow: x=>x.brand==="x",                    /* only X draws "From <source>" */
@@ -147,7 +184,7 @@ export const RELEVANT={
   marksRow:    x=>!x.social,
   /* --- social-only --- */
   socialCard:  x=>x.social,
-  metricsCard: x=>x.social,
+  metricsCard: x=>x.social&&x.brand!=="twitch",
   showCard:    x=>x.social,
   /* --- motion: pointless unless something animates --- */
   timingCap:   x=>S.anim||S.hlAnim,
