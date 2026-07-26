@@ -533,7 +533,7 @@ document.addEventListener("keydown",e=>{
   if(e.metaKey||e.ctrlKey||e.altKey)return;
   if(typingTarget(e.target))return;
   if(e.key.toLowerCase()==="f"){e.preventDefault();$("#view").click();return;}
-  if(e.key===" "){e.preventDefault();togglePlay();draw();return;}
+  if(e.key===" "){e.preventDefault();togglePlay();return;}
   if(!animated())return;
   const jump=e.shiftKey?10:1;
   if(e.key==="ArrowRight"){e.preventDefault();step(jump);}

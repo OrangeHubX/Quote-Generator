@@ -13,24 +13,27 @@
 <body>
 <div class="app">
 
+  <!-- Three fixed bands: tools, artwork, ruler. The tools used to float over the
+       canvas and the ruler was pinned to its bottom edge, so both moved whenever
+       the canvas resized — and the buttons sat on top of the card. Now only the
+       middle band changes size, and nothing overlaps the artwork. -->
   <main class="stage">
-    <!-- The tools float over the canvas instead of sitting in a row beneath it,
-         which gives the preview the height back and puts the controls where the
-         eye already is. -->
+    <div class="sbar">
+      <span class="badge" id="rOut">—</span>
+      <span class="badge dim">Size <b id="rFit">—</b></span>
+      <span class="sp"></span>
+      <button class="fab" id="view" aria-pressed="false" aria-label="Zoom to card" title="Zoom the preview to the card (F)">
+        <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button class="fab" id="play" aria-pressed="false" aria-label="Play" title="Play (space)">
+        <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></button>
+      <!-- A preview overlay, never exported — so it belongs with the preview, not
+           with the card's style. -->
+      <button class="fab" id="guides" aria-pressed="true" aria-label="Shorts UI zones"
+              title="Shorts UI safe zones — preview only, never exported">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 15h16M15 15V4"/></svg></button>
+    </div>
     <div class="cwrap">
       <div class="viewer"><canvas id="preview"></canvas></div>
-      <div class="ovl ovl-tl"><span class="badge" id="rOut">—</span><span class="badge dim">Size <b id="rFit">—</b></span></div>
-      <div class="ovl ovl-tr">
-        <button class="fab" id="view" aria-pressed="false" aria-label="Zoom to card" title="Zoom the preview to the card (F)">
-          <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
-        <button class="fab" id="play" aria-pressed="false" aria-label="Play" title="Play (space)">
-          <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></button>
-        <!-- A preview overlay, never exported — so it belongs with the preview, not
-             with the card's style. -->
-        <button class="fab" id="guides" aria-pressed="true" aria-label="Shorts UI zones"
-                title="Shorts UI safe zones — preview only, never exported">
-          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 15h16M15 15V4"/></svg></button>
-      </div>
     </div>
     <div class="tl hide" id="tl">
       <canvas id="tlBar"></canvas>
@@ -287,6 +290,10 @@
         <details class="fold sec" id="motionAdv">
           <summary>Shape the curve</summary>
           <div class="gwrap" id="gwrap"><canvas id="curve"></canvas></div>
+          <!-- A built-in shape has no control points to drag, and nothing said so.
+               This converts it to the nearest bezier and hands over the handles. -->
+          <div class="row" id="editCurveRow"><label>Handles</label>
+            <button class="btn" id="makeCustom">Make this curve editable</button></div>
           <div class="row"><label>Fade</label>
             <div class="seg" id="fadeEase"><button data-v="inout" aria-pressed="true">In-out</button><button data-v="out">Out</button><button data-v="none">None</button></div>
           </div>

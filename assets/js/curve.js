@@ -10,17 +10,6 @@ function viewBox(L){
     return {x:L.x-m,y:L.y-m,w:L.cardW+m*2,h:L.cardH+m*2};}
   return {x:0,y:0,w:FW,h:FH};
 }
-/* Vertical space the stage must give up before the canvas gets any. The tools
-   moved onto the canvas as floating pills, so the timeline is the only thing
-   still taking room — measure it and the stage's own padding rather than
-   guessing, because the timeline hides itself when nothing animates. */
-function chromeH(stage){
-  const cs=getComputedStyle(stage);
-  const pad=parseFloat(cs.paddingTop||0)+parseFloat(cs.paddingBottom||0);
-  const tl=$("#tl");
-  if(!tl||tl.classList.contains("hide")||!tl.offsetHeight)return pad;
-  return pad+tl.offsetHeight+parseFloat(cs.rowGap||cs.gap||0);
-}
 export function draw(){
   /* The playhead is the single source of truth for what the preview shows, and
      frameSec() is the mapping the exporters use — so the frame on screen is the
@@ -30,20 +19,17 @@ export function draw(){
   drawTimeline();
 
   const L=fitLayoutCached(),vb=viewBox(L);
-  const stage=document.querySelector(".stage");
-  const availW=Math.max(140,stage.clientWidth-(isPhone()?28:44));
-  const maxH=Math.max(56,stage.clientHeight-chromeH(stage));
+  /* The canvas fills the stage's middle band, which is sized by flex and cannot be
+     pushed by the canvas itself — so there is no chrome to subtract and no
+     feedback loop between the two. */
+  const wrap=$(".cwrap");
+  const availW=Math.max(140,wrap.clientWidth-(isPhone()?6:12));
+  const maxH=Math.max(56,wrap.clientHeight-(isPhone()?4:8));
   const w=Math.min(availW,maxH*vb.w/vb.h),h=w*vb.h/vb.w;
   const dpr=Math.min(window.devicePixelRatio||1,2);
   cv.style.width=Math.round(w)+"px";cv.style.height=Math.round(h)+"px";
   const pw=Math.round(w*dpr),ph=Math.round(h*dpr);
   if(cv.width!==pw||cv.height!==ph){cv.width=pw;cv.height=ph;}
-
-  /* The canvas can be narrower than its own overlays — a short stage makes a 9:16
-     preview only ~160px wide, where the readout badges would sit under the
-     buttons. The buttons win; the numbers are also in the Export tab. */
-  const tl=$(".ovl-tl");
-  if(tl)tl.classList.toggle("hide",w<240);
 
   const A=animated()?animAt(frameSec(R.frame)):{alpha:1,scale:1,dy:0,hp:1};
   paint(ctx,pw/vb.w,L,{tx:-vb.x,ty:-vb.y,guides:S.guides&&S.view==="frame",anim:A});
