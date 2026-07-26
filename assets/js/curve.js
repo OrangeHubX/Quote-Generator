@@ -99,7 +99,10 @@ function draw(){
   const stage=document.querySelector(".stage");
   const vh=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vh"))||window.innerHeight;
   const availW=Math.max(140,stage.clientWidth-(isPhone()?28:44));
-  const maxH=isPhone()?Math.max(160,stage.clientHeight-70):Math.max(200,stage.clientHeight-92);
+  /* reserve room for the tools + readout, but never demand more than the stage
+     actually has — the mobile strip is only ~96px tall while typing */
+  const chrome=isPhone()?(document.documentElement.dataset.kb==="1"?8:70):92;
+  const maxH=Math.max(56,stage.clientHeight-chrome);
   const w=Math.min(availW,maxH*vb.w/vb.h),h=w*vb.h/vb.w;
   const dpr=Math.min(window.devicePixelRatio||1,2);
   cv.style.width=Math.round(w)+"px";cv.style.height=Math.round(h)+"px";

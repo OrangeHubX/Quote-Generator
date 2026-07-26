@@ -14,7 +14,6 @@ const IPATH={
   xBookmark:{f:"M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4c-.276 0-.5.22-.5.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z"},
   xShare:{f:"M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z"},
   verified:{f:"M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.68.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.66 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.33-2.19c1.4.45 2.91.2 3.92-.81s1.26-2.52.8-3.91c1.31-.67 2.2-1.91 2.2-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z"},
-  slash:{s:"M12 3.2a8.8 8.8 0 1 0 0 17.6 8.8 8.8 0 0 0 0-17.6M5.8 5.8l12.4 12.4",w:1.9},
   dots:{f:"M4.5 12a2.1 2.1 0 1 1-4.2 0 2.1 2.1 0 0 1 4.2 0m9.6 0a2.1 2.1 0 1 1-4.2 0 2.1 2.1 0 0 1 4.2 0m9.6 0a2.1 2.1 0 1 1-4.2 0 2.1 2.1 0 0 1 4.2 0"},
   /* --- Facebook --- */
   fbThumb:{s:"M6.4 10.2v9.4H3.9a1.1 1.1 0 0 1-1.1-1.1v-7.2a1.1 1.1 0 0 1 1.1-1.1zM6.4 10.2l4.3-7.3a1.7 1.7 0 0 1 3.1 1.3l-.9 4.7h5.3a2.1 2.1 0 0 1 2.05 2.6l-1.3 6a2.1 2.1 0 0 1-2.05 1.65H6.4z",w:1.55},
@@ -61,7 +60,7 @@ function drawAvatar(c,x,y,s,shape){
   }
   c.restore();
 }
-function gc(id){return fmtCount(S[id]||"");}
+function gc(id){if(S.hideCounts||S.hidden[id])return "";return fmtCount(S[id]||"");}
 /* Name + @handle + · time on one line. Time is always kept; name and handle
    share the remaining room and each ellipsize, the way the real clients do. */
 function fitXHead(c,nameFont,name,metaFont,handle,timeStr,avail,badgeW){
@@ -95,14 +94,17 @@ const SCFG={
 function layoutSocial(c,fs){
   const cfg=SCFG[S.design],brand=cfg.brand,V=cfg.variant,pal=brandPal();
   const cardW=Math.round(FW*(S.width/100));
+  const noAv=!V_ON("avatar");        /* hidden avatar gives its gutter back */
+  const noAct=!V_ON("actions");      /* hidden action row closes the footer */
   const L={kind:"social",fs,cardW,pal,brand,cfg,V,bodyFs:fs,bodyLh:Math.round(fs*1.38)};
 
   if(V==="x"){
-    const pad=Math.round(fs*1.05),av=Math.round(fs*2.7),gap=Math.round(fs*0.62);
+    const pad=Math.round(fs*1.05),av=noAv?0:Math.round(fs*2.7),gap=noAv?0:Math.round(fs*0.62);
     const bodyX=pad+av+gap, bodyW=cardW-bodyX-pad;
     L.pad=pad;L.av=av;L.avShape=S.avShape||"circle";L.bodyX=bodyX;L.bodyW=bodyW;
     L.nameFs=Math.round(fs*0.94);L.metaFs=Math.round(fs*0.94);
     L.headTop=pad;L.headH=Math.round(fs*1.72);
+    if(noAv&&!V_ON("name")&&!V_ON("handle")&&!V_ON("time"))L.headH=0;
     L.replyH=cfg.reply?Math.round(fs*1.5):0;
     L.bodyTop=pad+L.headH+L.replyH;
     const mb=measureBlock(c,S.text,S.ranges,bodyW,fs,SANS,L.bodyLh);
@@ -114,16 +116,16 @@ function layoutSocial(c,fs){
       cur=L.mediaTop+L.media.h;
       if(S.mediaSrc){L.srcFs=Math.round(fs*0.82);L.srcTop=cur+Math.round(fs*0.5);cur=L.srcTop+L.srcFs;}
     }
-    L.footTop=cur+Math.round(fs*0.75);L.footH=Math.round(fs*1.25);
-    L.cardH=L.footTop+L.footH+pad*0.85;
+    L.footTop=cur+Math.round(fs*0.75);L.footH=noAct?0:Math.round(fs*1.25);
+    L.cardH=(noAct?cur:L.footTop+L.footH)+pad*0.85;
   }
   else if(V==="fbpost"){
-    const pad=Math.round(fs*0.95),av=Math.round(fs*2.85),gap=Math.round(fs*0.55);
+    const pad=Math.round(fs*0.95),av=noAv?0:Math.round(fs*2.85),gap=noAv?0:Math.round(fs*0.55);
     L.pad=pad;L.av=av;L.gap=gap;L.headX=pad+av+gap;
     L.nameFs=Math.round(fs*0.88);L.metaFs=Math.round(fs*0.72);
     L.headTop=pad;L.headH=av;
     L.bodyX=pad;L.bodyW=cardW-pad*2;
-    L.bodyTop=pad+av+Math.round(fs*0.7);
+    L.bodyTop=pad+(noAv?Math.round(fs*1.9):av)+Math.round(fs*0.7);
     const mb=measureBlock(c,S.text,S.ranges,L.bodyW,fs,SANS,L.bodyLh);
     L.lines=mb.lines;L.bodyH=mb.h;
     let cur=L.bodyTop+L.bodyH;
@@ -134,11 +136,11 @@ function layoutSocial(c,fs){
     }
     L.countsTop=cur+Math.round(fs*1.0);L.countsFs=Math.round(fs*0.76);
     L.ruleTop=L.countsTop+Math.round(fs*0.62);
-    L.actTop=L.ruleTop+Math.round(fs*0.35);L.actH=Math.round(fs*1.75);
-    L.cardH=L.actTop+L.actH+Math.round(fs*0.35);
+    L.actTop=L.ruleTop+Math.round(fs*0.35);L.actH=noAct?0:Math.round(fs*1.75);
+    L.cardH=(noAct?L.countsTop+Math.round(fs*0.9):L.actTop+L.actH)+Math.round(fs*0.35);
   }
   else if(V==="fbcom"){
-    const pad=Math.round(fs*0.9),av=Math.round(fs*2.6),gap=Math.round(fs*0.55);
+    const pad=Math.round(fs*0.9),av=noAv?0:Math.round(fs*2.6),gap=noAv?0:Math.round(fs*0.55);
     L.pad=pad;L.av=av;L.bodyX=pad+av+gap;
     L.nameFs=Math.round(fs*0.84);L.metaFs=Math.round(fs*0.76);
     L.rightW=Math.round(fs*3.4);                 /* reserved on the action row only */
@@ -147,11 +149,11 @@ function layoutSocial(c,fs){
     L.bodyTop=pad+L.headH;
     const mb=measureBlock(c,S.text,S.ranges,L.bodyW,fs,SANS,L.bodyLh);
     L.lines=mb.lines;L.bodyH=mb.h;
-    L.actTop=L.bodyTop+L.bodyH+Math.round(fs*0.6);L.actH=Math.round(fs*1.35);
-    L.cardH=Math.max(L.actTop+L.actH,pad+av)+pad*0.7;
+    L.actTop=L.bodyTop+L.bodyH+Math.round(fs*0.6);L.actH=noAct?0:Math.round(fs*1.35);
+    L.cardH=Math.max(noAct?L.bodyTop+L.bodyH:L.actTop+L.actH,pad+av)+pad*0.7;
   }
   else if(V==="igpost"){
-    const pad=Math.round(fs*0.95),av=Math.round(fs*2.4),gap=Math.round(fs*0.6);
+    const pad=Math.round(fs*0.95),av=noAv?0:Math.round(fs*2.4),gap=noAv?0:Math.round(fs*0.6);
     L.pad=pad;L.av=av;L.headX=pad+av+gap;
     L.nameFs=Math.round(fs*0.92);L.metaFs=Math.round(fs*0.76);
     L.headTop=pad;L.headH=av;
@@ -159,8 +161,8 @@ function layoutSocial(c,fs){
     const mw=cardW;
     L.media=S.media?{x:0,w:mw,h:Math.min(mw*(S.media.height/S.media.width),fs*16),bleed:true}
                    :{x:0,w:mw,h:Math.round(mw*1.0),bleed:true,placeholder:true};
-    L.actTop=L.mediaTop+L.media.h+Math.round(fs*0.75);L.actIS=Math.round(fs*1.5);
-    L.capTop=L.actTop+L.actIS+Math.round(fs*0.95);
+    L.actTop=L.mediaTop+L.media.h+Math.round(fs*0.75);L.actIS=noAct?0:Math.round(fs*1.5);
+    L.capTop=L.actTop+L.actIS+Math.round(noAct?fs*0.2:fs*0.95);
     /* caption: bold username sits inline before the first line of text */
     c.font="600 "+fs+"px "+SANS;
     L.capName=(S.handle||S.name||"username")+" ";
@@ -171,7 +173,7 @@ function layoutSocial(c,fs){
     L.cardH=L.dateTop+L.dateFs+pad;
   }
   else if(V==="igcom"){
-    const pad=Math.round(fs*0.9),av=Math.round(fs*2.75),gap=Math.round(fs*0.62);
+    const pad=Math.round(fs*0.9),av=noAv?0:Math.round(fs*2.75),gap=noAv?0:Math.round(fs*0.62);
     L.pad=pad;L.av=av;L.bodyX=pad+av+gap;
     L.nameFs=Math.round(fs*0.84);L.metaFs=Math.round(fs*0.8);
     L.rightW=Math.round(fs*2.0);                 /* heart + count column */
@@ -180,12 +182,12 @@ function layoutSocial(c,fs){
     L.bodyTop=pad+L.headH;
     const mb=measureBlock(c,S.text,S.ranges,L.bodyW,fs,SANS,L.bodyLh);
     L.lines=mb.lines;L.bodyH=mb.h;
-    L.actTop=L.bodyTop+L.bodyH+Math.round(fs*0.5);L.actH=Math.round(fs*1.2);
-    L.cardH=Math.max(L.actTop+L.actH,pad+av)+pad*0.7;
+    L.actTop=L.bodyTop+L.bodyH+Math.round(fs*0.5);L.actH=noAct?0:Math.round(fs*1.2);
+    L.cardH=Math.max(noAct?L.bodyTop+L.bodyH:L.actTop+L.actH,pad+av)+pad*0.7;
   }
   else {  /* reddit + youtube */
     const title=(V==="rpost");
-    const pad=Math.round(fs*0.9),av=title?Math.round(fs*1.75):Math.round(fs*2.0),gap=Math.round(fs*0.5);
+    const pad=Math.round(fs*0.9),av=noAv?0:(title?Math.round(fs*1.75):Math.round(fs*2.0)),gap=noAv?0:Math.round(fs*0.5);
     L.pad=pad;L.av=av;L.bodyX=title?pad:(pad+av+gap);L.headX=pad+av+gap;
     L.nameFs=Math.round(fs*0.86);L.metaFs=Math.round(fs*0.8);
     L.headTop=pad;L.headH=title?av+Math.round(fs*0.55):Math.round(fs*1.25);
@@ -201,8 +203,8 @@ function layoutSocial(c,fs){
       cur=L.mediaTop+L.media.h;
     }
     if(V!=="rpost")cur=Math.max(cur,pad+av);
-    L.footTop=cur+Math.round(fs*0.6);L.footH=title?Math.round(fs*1.9):Math.round(fs*1.3);
-    L.cardH=L.footTop+L.footH+pad*0.7;
+    L.footTop=cur+Math.round(fs*0.6);L.footH=noAct?0:(title?Math.round(fs*1.9):Math.round(fs*1.3));
+    L.cardH=(noAct?cur:L.footTop+L.footH)+pad*0.7;
   }
   L.cardH=Math.round(L.cardH);
   return L;
@@ -252,19 +254,21 @@ function body(c,L,X,Y,hp,x,top,weight){
 /* ---- X / Twitter ---- */
 function paintX(c,L,hp){
   const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
-  drawAvatar(c,X+pad,Y+L.headTop,av,L.avShape);
+  if(V_ON("avatar"))drawAvatar(c,X+pad,Y+L.headTop,av,L.avShape);
   const hx=X+L.bodyX;
   const base=Y+L.headTop+L.nameFs*1.02;          /* name sits at the top of the column */
   const hcy=base-L.nameFs*0.32;                  /* trailing glyphs centre on the name line */
-  const dotsS=Math.round(fs*1.05),slashS=Math.round(fs*1.0);
+  const dotsS=Math.round(fs*1.05);
   const rightEdge=X+L.cardW-pad;
-  drawIcon(c,"dots",rightEdge-dotsS,hcy-dotsS/2,dotsS,pal.sub);
-  let resv=dotsS+fs*0.4;
-  if(S.xSlash){drawIcon(c,"slash",rightEdge-dotsS-fs*0.55-slashS,hcy-slashS/2,slashS,pal.sub);resv+=slashS+fs*0.55;}
+  let resv=0;
+  if(V_ON("menu")){drawIcon(c,"dots",rightEdge-dotsS,hcy-dotsS/2,dotsS,pal.sub);resv=dotsS+fs*0.4;}
   const nameFont="700 "+L.nameFs+"px "+SANS,metaFont=L.metaFs+"px "+SANS;
-  const badgeW=S.badge!=="off"?L.nameFs*1.24:0;
-  const run=fitXHead(c,nameFont,S.name||"Name",metaFont," @"+(S.handle||"handle"),
-    S.time?" · "+S.time:"",rightEdge-resv-hx,badgeW);
+  const showBadge=S.badge!=="off"&&V_ON("badge");
+  const badgeW=showBadge?L.nameFs*1.24:0;
+  const nameTxt=V_ON("name")?(S.name||"Name"):"";
+  const handleTxt=V_ON("handle")?" @"+(S.handle||"handle"):"";
+  const timeTxt=(S.time&&V_ON("time"))?(nameTxt||handleTxt?" · ":"")+S.time:"";
+  const run=fitXHead(c,nameFont,nameTxt,metaFont,handleTxt,timeTxt,rightEdge-resv-hx,badgeW);
   c.font=nameFont;c.fillStyle=pal.ink;c.fillText(run.name,hx,base);
   let cx=hx+run.nameW;
   if(badgeW){const bs=L.nameFs*1.06;
@@ -285,21 +289,26 @@ function paintX(c,L,hp){
   /* action bar: 4 metric groups spread, bookmark + share pinned right.
      Widths are measured so a count can never run into the next icon. */
   const fy=Y+L.footTop+L.footH*0.5;
-  const items=[["xReply",gc("replies")],["xRetweet",gc("retweets")],
-               [S.likeOn?"xHeartOn":"xHeart",gc("likes"),S.likeOn?pal.like:null],["xViews",gc("views")]];
+  const items=[["xReply","replies"],["xRetweet","retweets"],
+               [S.likeOn?"xHeartOn":"xHeart","likes",S.likeOn?pal.like:null],["xViews","views"]]
+    .filter(it=>V_ON(it[1]))
+    .map(it=>[it[0],gc(it[1]),it[2]]);
   const usable=L.cardW-L.bodyX-pad;
   let iS,cfs,gaps,widths,tail=true;
   for(let k=0;k<8;k++){                          /* shrink until the row fits */
     iS=Math.round(fs*(1.0-k*0.06));cfs=Math.round(fs*(0.78-k*0.045));
     c.font=cfs+"px "+SANS;
     widths=items.map(it=>iS+(it[1]?fs*0.2+c.measureText(it[1]).width:0));
-    gaps=(usable-widths.reduce((a,b)=>a+b,0)-(iS*2+fs*1.15))/4;
+    gaps=(usable-widths.reduce((a,b)=>a+b,0)-(iS*2+fs*1.15))/Math.max(1,items.length);
     if(gaps>=fs*0.3)break;
   }
-  if(gaps<fs*0.12){
+  if(!V_ON("bookmark"))tail=false;
+  if(tail&&gaps<fs*0.12){
     /* still cramped: drop bookmark + share rather than overlap the counts */
     tail=false;
-    gaps=(usable-widths.reduce((a,b)=>a+b,0))/3.2;
+  }
+  if(!tail){
+    gaps=(usable-widths.reduce((a,b)=>a+b,0))/Math.max(1,items.length-0.8);
     gaps=Math.max(gaps,fs*0.1);
   }
   c.font=cfs+"px "+SANS;
@@ -321,16 +330,16 @@ function paintX(c,L,hp){
 /* ---- Facebook post ---- */
 function paintFbPost(c,L,hp){
   const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
-  drawAvatar(c,X+pad,Y+L.headTop,av);
+  if(V_ON("avatar"))drawAvatar(c,X+pad,Y+L.headTop,av);
   const hx=X+L.headX,top=Y+L.headTop,right=X+L.cardW-pad;
   const dotsS=Math.round(fs*1.05);
-  drawIcon(c,"dots",right-dotsS,top+av*0.28,dotsS,pal.sub);
+  if(V_ON("menu"))drawIcon(c,"dots",right-dotsS,top+av*0.28,dotsS,pal.sub);
   /* line 1: name (+ badge) (+ · Follow) */
   c.font="700 "+L.nameFs+"px "+SANS;
-  const badgeW=S.badge!=="off"?L.nameFs*1.2:0;
+  const badgeW=(S.badge!=="off"&&V_ON("badge"))?L.nameFs*1.2:0;
   const followTxt=S.follow?" · Follow":"";
   c.font="700 "+L.nameFs+"px "+SANS;const fw=followTxt?c.measureText(followTxt).width:0;
-  const nm=ellip(c,S.name||"Name",right-dotsS-fs*0.5-hx-badgeW-fw);
+  const nm=V_ON("name")?ellip(c,S.name||"Name",right-dotsS-fs*0.5-hx-badgeW-fw):"";
   const b1=top+L.nameFs*1.02;
   c.fillStyle=pal.ink;c.fillText(nm,hx,b1);
   let cx=hx+c.measureText(nm).width;
@@ -338,20 +347,30 @@ function paintFbPost(c,L,hp){
   if(followTxt){c.fillStyle=pal.accent;c.fillText(followTxt,cx,b1);}
   /* line 2: time · globe */
   const b2=top+av*0.82;
-  c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
-  const tstr=(S.time||"2h")+" · ";c.fillText(tstr,hx,b2);
-  const gS=Math.round(L.metaFs*1.0);
-  drawIcon(c,"globe",hx+c.measureText(tstr).width,b2-gS*0.82,gS,pal.sub);
+  if(V_ON("time")){
+    c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+    const tstr=(S.time||"2h")+" · ";c.fillText(tstr,hx,b2);
+    const gS=Math.round(L.metaFs*1.0);
+    drawIcon(c,"globe",hx+c.measureText(tstr).width,b2-gS*0.82,gS,pal.sub);
+  }
   body(c,L,X,Y,hp,L.bodyX,L.bodyTop);
   drawMedia(c,L,X,Y);
   /* reaction counts */
   const cy=Y+L.countsTop,tS=Math.round(fs*0.95);
   c.font=L.countsFs+"px "+SANS;c.textBaseline="middle";
-  c.fillStyle=pal.accent;c.beginPath();c.arc(X+pad+tS*0.45,cy,tS*0.45,0,7);c.fill();
-  drawIcon(c,"fbThumb",X+pad+tS*0.16,cy-tS*0.29,tS*0.58,"#FFFFFF");
-  c.fillStyle=pal.sub;c.fillText(gc("likes"),X+pad+tS*1.15,cy);
-  const rTxt=gc("replies")+" comments   "+gc("retweets")+" shares";
-  c.textAlign="right";c.fillText(rTxt,X+L.cardW-pad,cy);c.textAlign="left";c.textBaseline="alphabetic";
+  const lc=gc("likes");
+  if(lc){
+    c.fillStyle=pal.accent;c.beginPath();c.arc(X+pad+tS*0.45,cy,tS*0.45,0,7);c.fill();
+    drawIcon(c,"fbThumb",X+pad+tS*0.16,cy-tS*0.29,tS*0.58,"#FFFFFF");
+    c.fillStyle=pal.sub;c.fillText(lc,X+pad+tS*1.15,cy);
+  }
+  const bits=[];
+  if(gc("replies"))bits.push(gc("replies")+" comments");
+  if(gc("retweets"))bits.push(gc("retweets")+" shares");
+  if(bits.length){c.fillStyle=pal.sub;c.textAlign="right";
+    c.fillText(bits.join("   "),X+L.cardW-pad,cy);c.textAlign="left";}
+  c.textBaseline="alphabetic";
+  if(!V_ON("actions"))return;
   /* divider + action row */
   c.fillStyle=pal.rule;c.fillRect(X+pad,Y+L.ruleTop,L.cardW-pad*2,Math.max(1,fs*0.02));
   const iS=Math.round(fs*1.35),ay=Y+L.actTop+L.actH*0.5,third=(L.cardW-pad*2)/3;
@@ -366,26 +385,30 @@ function paintFbPost(c,L,hp){
 /* ---- Facebook comment (plain text, reaction pill, thumbs right) ---- */
 function paintFbComment(c,L,hp){
   const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
-  drawAvatar(c,X+pad,Y+L.headTop,av);
+  if(V_ON("avatar"))drawAvatar(c,X+pad,Y+L.headTop,av);
   const hx=X+L.bodyX,top=Y+L.headTop;
   const b1=top+L.nameFs*1.0;
   c.font="700 "+L.nameFs+"px "+SANS;c.fillStyle=pal.ink;
-  const avail=L.bodyW;
-  const nm=ellip(c,S.name||"Name",avail*0.7);
+  const nm=V_ON("name")?ellip(c,S.name||"Name",L.bodyW*0.7):"";
   c.fillText(nm,hx,b1);
   let cx=hx+c.measureText(nm).width;
-  if(S.badge!=="off"){const bs=L.nameFs*0.95;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);cx+=bs+fs*0.12;}
-  c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;c.fillText(" · "+(S.time||"5d"),cx,b1);
+  if(S.badge!=="off"&&V_ON("badge")){const bs=L.nameFs*0.95;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);cx+=bs+fs*0.12;}
+  if(V_ON("time")){c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText((nm?" · ":"")+(S.time||"5d"),cx,b1);}
   body(c,L,X,Y,hp,L.bodyX,L.bodyTop);
   /* Reply + reaction pill */
+  if(!V_ON("actions"))return;
   const ay=Y+L.actTop+L.actH*0.5;
   c.font="600 "+Math.round(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;
   c.textBaseline="middle";c.fillText("Reply",hx,ay);
   const rw=c.measureText("Reply").width;
-  const tS=Math.round(fs*1.0),px=hx+rw+fs*1.5;
-  c.fillStyle=pal.accent;c.beginPath();c.arc(px+tS*0.5,ay,tS*0.5,0,7);c.fill();
-  drawIcon(c,"fbThumb",px+tS*0.18,ay-tS*0.32,tS*0.64,"#FFFFFF");
-  c.fillStyle=pal.sub;c.fillText(gc("likes"),px+tS*1.3,ay);
+  const lc=gc("likes");
+  if(lc&&V_ON("likes")){
+    const tS=Math.round(fs*1.0),px=hx+rw+fs*1.5;
+    c.fillStyle=pal.accent;c.beginPath();c.arc(px+tS*0.5,ay,tS*0.5,0,7);c.fill();
+    drawIcon(c,"fbThumb",px+tS*0.18,ay-tS*0.32,tS*0.64,"#FFFFFF");
+    c.fillStyle=pal.sub;c.fillText(lc,px+tS*1.3,ay);
+  }
   c.textBaseline="alphabetic";
   /* thumb up then thumb down on the right */
   const iS=Math.round(fs*1.15),right=X+L.cardW-pad;
@@ -396,10 +419,10 @@ function paintFbComment(c,L,hp){
 /* ---- Instagram post ---- */
 function paintIgPost(c,L,hp){
   const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
-  drawAvatar(c,X+pad,Y+L.headTop,av);
+  if(V_ON("avatar"))drawAvatar(c,X+pad,Y+L.headTop,av);
   const hx=X+L.headX,top=Y+L.headTop,right=X+L.cardW-pad;
   const menuS=Math.round(fs*1.15);
-  drawIcon(c,"igMenu",right-menuS,top+av*0.5-menuS/2,menuS,pal.ink);
+  if(V_ON("menu"))drawIcon(c,"igMenu",right-menuS,top+av*0.5-menuS/2,menuS,pal.ink);
   /* Follow pill */
   let fRight=right-menuS-fs*0.7;
   if(S.follow){
@@ -412,11 +435,11 @@ function paintIgPost(c,L,hp){
     fRight=bxp-fs*0.5;
   }
   c.font="600 "+L.nameFs+"px "+SANS;c.fillStyle=pal.ink;
-  const un=ellip(c,S.handle||S.name||"username",fRight-hx);
+  const un=V_ON("handle")?ellip(c,S.handle||S.name||"username",fRight-hx):"";
   const b1=top+L.nameFs*0.98;
   c.fillText(un,hx,b1);
   let cx=hx+c.measureText(un).width;
-  if(S.badge!=="off"){const bs=L.nameFs*0.9;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);}
+  if(S.badge!=="off"&&V_ON("badge")){const bs=L.nameFs*0.9;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);}
   if(S.audio){
     const mS=Math.round(L.metaFs*0.95),b2=top+av*0.85;
     drawIcon(c,"igMusic",hx,b2-mS*0.85,mS,pal.sub);
@@ -425,48 +448,58 @@ function paintIgPost(c,L,hp){
   }
   drawMedia(c,L,X,Y);
   /* action row */
-  const iS=L.actIS,ay=Y+L.actTop;
-  let ix=X+pad;
-  c.font=Math.round(fs*0.84)+"px "+SANS;c.textBaseline="middle";
-  const acts=[[S.likeOn?"xHeartOn":"igHeart","",S.likeOn?pal.like:null],["igComment",gc("replies")],["igReshare",gc("retweets")],["igSend",""]];
-  acts.forEach(a=>{
-    const col=a[2]||pal.ink;
-    drawIcon(c,a[0],ix,ay,iS,col);ix+=iS;
-    if(a[1]){c.fillStyle=pal.ink;c.fillText(a[1],ix+fs*0.22,ay+iS/2);ix+=c.measureText(a[1]).width+fs*0.22;}
-    ix+=fs*0.85;
-  });
-  drawIcon(c,"igBookmark",X+L.cardW-pad-iS,ay,iS,pal.ink);
-  c.textBaseline="alphabetic";
+  if(V_ON("actions")){
+    const iS=L.actIS,ay=Y+L.actTop;
+    let ix=X+pad;
+    c.font=Math.round(fs*0.84)+"px "+SANS;c.textBaseline="middle";
+    const acts=[[S.likeOn?"xHeartOn":"igHeart","","likes",S.likeOn?pal.like:null],
+                ["igComment",gc("replies"),"replies"],
+                ["igReshare",gc("retweets"),"retweets"],
+                ["igSend","","send"]];
+    acts.forEach(a=>{
+      if(a[2]!=="send"&&!V_ON(a[2]))return;
+      drawIcon(c,a[0],ix,ay,iS,a[3]||pal.ink);ix+=iS;
+      if(a[1]){c.fillStyle=pal.ink;c.fillText(a[1],ix+fs*0.22,ay+iS/2);ix+=c.measureText(a[1]).width+fs*0.22;}
+      ix+=fs*0.85;
+    });
+    if(V_ON("bookmark"))drawIcon(c,"igBookmark",X+L.cardW-pad-iS,ay,iS,pal.ink);
+    c.textBaseline="alphabetic";
+  }
   /* caption: bold username inline, text flows around it */
   c.font="600 "+L.bodyFs+"px "+SANS;c.fillStyle=pal.ink;
   c.fillText(L.capName,X+pad,Y+L.capTop+L.bodyFs*0.82);
   paintBlock(c,{text:S.text,rs:S.ranges,lines:L.lines,x:X+L.bodyX,y:Y+L.capTop,
     fs:L.bodyFs,lh:L.bodyLh,face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,
     hp,indent:L.capIndent});
-  c.font=L.dateFs+"px "+SANS;c.fillStyle=pal.sub;
-  c.fillText(S.time||"July 13",X+pad,Y+L.dateTop+L.dateFs*0.85);
+  if(V_ON("time")){c.font=L.dateFs+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText(S.time||"July 13",X+pad,Y+L.dateTop+L.dateFs*0.85);}
 }
 
 /* ---- Instagram comment ---- */
 function paintIgComment(c,L,hp){
   const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad,av=L.av;
-  drawAvatar(c,X+pad,Y+L.headTop,av);
+  if(V_ON("avatar"))drawAvatar(c,X+pad,Y+L.headTop,av);
   const hx=X+L.bodyX,top=Y+L.headTop,b1=top+L.nameFs*1.0;
   c.font="600 "+L.nameFs+"px "+SANS;c.fillStyle=pal.ink;
-  const un=ellip(c,S.handle||S.name||"username",L.bodyW*0.66);
+  const un=V_ON("handle")?ellip(c,S.handle||S.name||"username",L.bodyW*0.66):"";
   c.fillText(un,hx,b1);
   let cx=hx+c.measureText(un).width;
-  if(S.badge!=="off"){const bs=L.nameFs*0.9;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);cx+=bs+fs*0.14;}
-  c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;c.fillText("  "+(S.time||"1w"),cx,b1);
+  if(S.badge!=="off"&&V_ON("badge")){const bs=L.nameFs*0.9;drawIcon(c,"verified",cx+fs*0.1,b1-bs*0.8,bs,pal.badge);cx+=bs+fs*0.14;}
+  if(V_ON("time")){c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;c.fillText("  "+(S.time||"1w"),cx,b1);}
   body(c,L,X,Y,hp,L.bodyX,L.bodyTop);
-  c.font="500 "+Math.round(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;
-  c.textBaseline="middle";c.fillText("Reply",hx,Y+L.actTop+L.actH*0.5);c.textBaseline="alphabetic";
+  if(V_ON("actions")){
+    c.font="500 "+Math.round(fs*0.78)+"px "+SANS;c.fillStyle=pal.sub;
+    c.textBaseline="middle";c.fillText("Reply",hx,Y+L.actTop+L.actH*0.5);c.textBaseline="alphabetic";
+  }
   /* heart + count, right column */
-  const iS=Math.round(fs*1.1),hcx=X+L.cardW-pad-iS/2,hy=top+fs*0.15;
-  drawIcon(c,S.likeOn?"xHeartOn":"igHeart",hcx-iS/2,hy,iS,S.likeOn?pal.like:pal.sub);
-  if(S.likes){
-    c.font=Math.round(fs*0.72)+"px "+SANS;c.fillStyle=pal.sub;c.textAlign="center";
-    c.fillText(gc("likes"),hcx,hy+iS+fs*0.68);c.textAlign="left";
+  if(V_ON("likes")){
+    const iS=Math.round(fs*1.1),hcx=X+L.cardW-pad-iS/2,hy=top+fs*0.15;
+    drawIcon(c,S.likeOn?"xHeartOn":"igHeart",hcx-iS/2,hy,iS,S.likeOn?pal.like:pal.sub);
+    const lc=gc("likes");
+    if(lc){
+      c.font=Math.round(fs*0.72)+"px "+SANS;c.fillStyle=pal.sub;c.textAlign="center";
+      c.fillText(lc,hcx,hy+iS+fs*0.68);c.textAlign="left";
+    }
   }
 }
 
@@ -479,25 +512,27 @@ function paintRedditYt(c,L,hp){
     c.fillStyle="#FF4500";c.fillRect(X+pad,top,av,av);
     if(S.avatar)c.drawImage(S.avatar,X+pad,top,av,av);c.restore();
     const hx=X+L.headX,b=top+av*0.5+L.nameFs*0.34,dotsS=Math.round(fs*1.0);
-    drawIcon(c,"dots",right-dotsS,top+av*0.5-dotsS/2,dotsS,pal.sub);
+    if(V_ON("menu"))drawIcon(c,"dots",right-dotsS,top+av*0.5-dotsS/2,dotsS,pal.sub);
     c.font="700 "+L.nameFs+"px "+SANS;
     const sr=ellip(c,"r/"+(S.sub||"subreddit"),(right-dotsS-fs*0.5-hx)*0.7);
     c.fillStyle=pal.ink;c.fillText(sr,hx,b);
     const w=c.measureText(sr).width;
-    c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
-    c.fillText(ellip(c," · "+(S.time||"5h"),right-dotsS-fs*0.5-hx-w),hx+w,b);
+    if(V_ON("time")){c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+      c.fillText(ellip(c," · "+(S.time||"5h"),right-dotsS-fs*0.5-hx-w),hx+w,b);}
   }else{
-    drawAvatar(c,X+pad,top,av);
+    if(V_ON("avatar"))drawAvatar(c,X+pad,top,av);
     const hx=X+L.headX,b=top+L.nameFs*1.0;
     c.font="600 "+L.nameFs+"px "+SANS;c.fillStyle=pal.ink;
+    const wantLabel=(V==="rcom")?V_ON("handle"):V_ON("name");
     const label=(V==="rcom")?("u/"+(S.handle||"user")):(S.name||"Name");
-    const nm=ellip(c,label,(right-hx)*0.62);
+    const nm=wantLabel?ellip(c,label,(right-hx)*0.62):"";
     c.fillText(nm,hx,b);const w=c.measureText(nm).width;
-    c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
-    c.fillText(ellip(c," · "+(S.time||"5h"),right-hx-w),hx+w,b);
+    if(V_ON("time")){c.font=L.metaFs+"px "+SANS;c.fillStyle=pal.sub;
+      c.fillText(ellip(c,(nm?" · ":"")+(S.time||"5h"),right-hx-w),hx+w,b);}
   }
   body(c,L,X,Y,hp,L.bodyX,L.bodyTop,L.titleWeight);
   drawMedia(c,L,X,Y);
+  if(!V_ON("actions"))return;
   const iS=Math.round(fs*1.05),fy=Y+L.footTop+L.footH*0.5;
   if(V==="rpost"){
     const pillH=Math.round(fs*1.65),py=fy-pillH/2;

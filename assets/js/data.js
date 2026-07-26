@@ -92,8 +92,31 @@ const S={
   name:"Rockstar Games",handle:"RockstarGames",badge:"blue",follow:true,sub:"GamingLeaksAndRumours",time:"2h",
   likes:"2.4K",retweets:"318",replies:"24",views:"98K",
   avatar:null,media:null,
-  avShape:"circle",xSlash:false,likeOn:false,audio:"",mediaSrc:""
+  avShape:"circle",likeOn:false,audio:"",mediaSrc:"",
+  /* per-element visibility — anything false is simply not drawn, and the
+     layout closes the gap so you get the space back */
+  hidden:{},
+  hideCounts:false
 };
+
+/* Elements that can be switched off, per platform family.
+   [key, label, applies-to test] */
+const HIDEABLE=[
+  ["avatar",  "Profile picture", ()=>true],
+  ["name",    "Display name",    b=>b!=="reddit"],
+  ["handle",  "Username",        b=>b==="x"||b==="reddit"||b==="ig"],
+  ["badge",   "Verified tick",   b=>b==="x"||b==="fb"||b==="ig"],
+  ["time",    "Timestamp",       ()=>true],
+  ["menu",    "“…” menu",        b=>b==="x"||b==="fb"||b==="reddit"],
+  ["replies", "Replies",         ()=>true],
+  ["retweets","Reposts / shares",b=>b==="x"||b==="fb"||b==="ig"],
+  ["likes",   "Likes / votes",   ()=>true],
+  ["views",   "Views",           b=>b==="x"],
+  ["bookmark","Bookmark + share",b=>b==="x"],
+  ["actions", "Action row",      b=>b==="fb"||b==="ig"||b==="yt"||b==="reddit"]
+];
+/* is an element visible? */
+function V_ON(key){return !S.hidden[key];}
 
 const $=s=>document.querySelector(s);
 const cv=$("#preview"),ctx=cv.getContext("2d");

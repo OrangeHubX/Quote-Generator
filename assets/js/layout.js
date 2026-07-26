@@ -5,7 +5,7 @@ function sigOf(){
   return [S.design,S.text,JSON.stringify(S.ranges),S.theme,S.face,S.size,S.width,S.ypos,S.marks,S.header,
     S.outlet,S.url,S.hlStyle,S.crop,S.res,S.name,S.handle,S.badge,S.follow,S.sub,S.time,S.likes,S.retweets,S.replies,S.views,
     S.avatar?S.avatar.src.length:0,S.media?(S.media.width+"x"+S.media.height):0,
-    S.avShape,S.xSlash,S.likeOn,S.audio,S.mediaSrc].join("|");
+    S.avShape,S.likeOn,S.audio,S.mediaSrc].join("|");
 }
 function computeLayout(c,fs){ return d().social?layoutSocial(c,fs):layoutQuote(c,fs); }
 function fitLayout(c){

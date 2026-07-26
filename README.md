@@ -21,10 +21,27 @@ assets/js/
   layout.js             layout dispatch + cache, easing, whole-frame paint
   curve.js              motion graph, bezier handles, preview loop
   export.js             zip writer, GIF encoder, export paths
-  ui.js                 DOM wiring: fields, sliders, tabs, presets
+  ui.js                 DOM wiring: fields, sliders, segmented groups, tabs
+  panels.js             design combobox, show/hide chips, saved presets
+  boot.js               startup
 ```
 
-Load order matters: `data.js` first, `ui.js` last.
+Load order matters: `data.js` first, `boot.js` last.
+
+## Notes
+
+**Mobile keyboard.** Every mobile height derives from `--vh`, which tracks the
+*visual* viewport. Never use static `vh` for layout heights — that is what let
+the keyboard push fields out of view. While a field is focused, `data-kb="1"` on
+`<html>` collapses the canvas to a short live strip so the field stays visible.
+
+**Hiding elements.** `S.hidden` is a map of element keys that are not drawn;
+`V_ON(key)` tests it and the layout closes the gap, so hiding the avatar or the
+action row gives the space back rather than leaving a hole. `S.hideCounts`
+blanks every engagement number while keeping the icons.
+
+**Presets** live in `localStorage` and store all of `S` except the decoded
+images and the quote text itself, so a preset is a reusable *look*.
 
 ## Export
 

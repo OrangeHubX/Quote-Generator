@@ -22,26 +22,14 @@
   <section class="insp">
     <div class="insp-top">
       <span class="mark">Quote Slate</span>
-      <select class="sel" id="design" aria-label="Design">
-        <optgroup label="News"><option value="quote">Quote card</option></optgroup>
-        <optgroup label="X (Twitter)">
-          <option value="x-post">X — Post</option>
-          <option value="x-reply">X — Reply</option>
-        </optgroup>
-        <optgroup label="Reddit">
-          <option value="reddit-post">Reddit — Post</option>
-          <option value="reddit-comment">Reddit — Comment</option>
-        </optgroup>
-        <optgroup label="YouTube"><option value="yt-comment">YouTube — Comment</option></optgroup>
-        <optgroup label="Facebook">
-          <option value="fb-post">Facebook — Post</option>
-          <option value="fb-comment">Facebook — Comment</option>
-        </optgroup>
-        <optgroup label="Instagram">
-          <option value="ig-post">Instagram — Post</option>
-          <option value="ig-comment">Instagram — Comment</option>
-        </optgroup>
-      </select>
+      <div class="combo" id="designCombo">
+        <button class="combo-btn" id="designBtn" aria-haspopup="listbox" aria-expanded="false">
+          <span class="combo-dot" id="designDot"></span>
+          <span class="combo-val" id="designVal">Quote card</span>
+          <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="combo-pop" id="designPop" role="listbox"></div>
+      </div>
       <span id="subtitle" class="hide"></span>
     </div>
 
@@ -111,10 +99,17 @@
           </div>
           <div class="row rowsw" id="followRow"><span class="rl">Show “Follow”</span>
             <label class="sw"><input type="checkbox" id="follow" checked><span class="tr"></span></label></div>
-          <div class="row rowsw" id="slashRow"><span class="rl">Ad / subscribe glyph</span>
-            <label class="sw"><input type="checkbox" id="xSlash"><span class="tr"></span></label></div>
           <div class="row rowsw"><span class="rl">Liked<small>Fills the heart</small></span>
             <label class="sw"><input type="checkbox" id="likeOn"><span class="tr"></span></label></div>
+        </div>
+
+        <!-- element visibility -->
+        <div id="showCard" class="hide">
+          <div class="cap">Show / hide
+            <button class="cap-btn" id="showAll">All on</button></div>
+          <div class="row rowsw"><span class="rl">Numbers<small>Blanks every count, keeps the icons</small></span>
+            <label class="sw"><input type="checkbox" id="hideCounts"><span class="tr"></span></label></div>
+          <div id="showGrid"></div>
         </div>
 
         <!-- engagement + media -->
@@ -236,6 +231,10 @@
 
       <!-- ===== EXPORT ===== -->
       <div class="page" data-page="export">
+        <div class="cap">Presets
+          <button class="cap-btn" id="presetSave">Save current</button></div>
+        <div id="presetList" class="presets"></div>
+        <p class="note" id="presetNote">Presets store every setting except uploaded images.</p>
         <div class="cap">Output</div>
         <div class="row"><label>Type</label>
           <div class="seg" id="format"><button data-v="still" aria-pressed="true">Still</button><button data-v="seq">Frames</button><button data-v="webm">WebM</button><button data-v="gif">GIF</button></div>
@@ -291,5 +290,7 @@
 <script src="assets/js/curve.js"></script>
 <script src="assets/js/export.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="assets/js/panels.js"></script>
+<script src="assets/js/boot.js"></script>
 </body>
 </html>

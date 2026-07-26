@@ -27,6 +27,12 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 
 /* ============ shell ============ */
 .app{display:grid;grid-template-columns:1fr 366px;height:100dvh;height:var(--vh,100dvh);overflow:hidden}
+/* pinning to the visual viewport stops the page background showing through
+   below the layout when the keyboard shortens the viewport */
+@media (max-width:900px){
+  html,body{height:100%;background:var(--panel)}
+  .app{position:fixed;left:0;top:0;right:0;height:var(--vh,100dvh)}
+}
 
 /* ---- canvas stage ---- */
 .stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
@@ -200,6 +206,64 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
   border-radius:var(--r);touch-action:none;cursor:crosshair}
 .gwrap{padding:3px 12px}
 
+/* ---- custom design combobox (replaces the native select) ---- */
+.combo{position:relative;flex:1;min-width:0}
+.combo-btn{width:100%;height:var(--ctl);display:flex;align-items:center;gap:7px;
+  background:var(--input);border:1px solid var(--line);border-radius:var(--r);
+  padding:0 8px;cursor:pointer;text-align:left}
+.combo-btn:hover{background:var(--input-hi)}
+.combo-btn[aria-expanded=true]{border-color:var(--acc)}
+.combo-dot{width:7px;height:7px;border-radius:50%;background:var(--fg-3);flex:none}
+.combo-val{flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.combo-chev{width:13px;height:13px;flex:none;fill:none;stroke:var(--fg-3);stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .13s}
+.combo-btn[aria-expanded=true] .combo-chev{transform:rotate(180deg)}
+.combo-pop{position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:40;display:none;
+  background:var(--sub-panel);border:1px solid var(--line-2);border-radius:var(--r-lg);
+  padding:5px;box-shadow:0 14px 38px rgba(0,0,0,.7);max-height:min(66vh,420px);overflow-y:auto}
+.combo-pop[data-open=true]{display:block}
+.combo-grp{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--fg-3);padding:8px 8px 4px}
+.combo-opt{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;
+  border-radius:5px;padding:7px 8px;cursor:pointer;color:var(--fg);font-size:12.5px;text-align:left}
+.combo-opt:hover{background:var(--input-hi)}
+.combo-opt[aria-selected=true]{background:var(--acc-soft);color:var(--acc);font-weight:600}
+.combo-opt .cd{width:7px;height:7px;border-radius:50%;flex:none}
+
+/* ---- caption action button ---- */
+.cap-btn{background:none;border:0;color:var(--acc);font-size:10.5px;font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:2px 4px;border-radius:4px;
+  flex:none;order:3}
+.cap-btn:hover{background:var(--acc-soft)}
+.cap:has(.cap-btn)::after{order:2}
+
+/* ---- show/hide chip grid ---- */
+.chips{display:flex;flex-wrap:wrap;gap:5px;padding:4px 12px 2px}
+.chips button{background:var(--input);border:1px solid var(--line);border-radius:20px;
+  color:var(--fg-3);font-size:11.5px;font-weight:500;cursor:pointer;padding:5px 10px;
+  display:inline-flex;align-items:center;gap:5px}
+.chips button:hover{background:var(--input-hi);color:var(--fg-2)}
+.chips button[aria-pressed=true]{background:var(--acc-soft);border-color:transparent;color:var(--acc)}
+.chips button .tick{width:11px;height:11px;flex:none;fill:none;stroke:currentColor;
+  stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;opacity:.35}
+.chips button[aria-pressed=true] .tick{opacity:1}
+
+/* ---- presets ---- */
+.presets{display:flex;flex-direction:column;gap:4px;padding:2px 12px}
+.presets .pr{display:flex;align-items:center;gap:7px;background:var(--input);
+  border:1px solid var(--line);border-radius:var(--r);padding:0 4px 0 9px;height:32px}
+.presets .pr:hover{background:var(--input-hi)}
+.presets .pr .nm{flex:1;min-width:0;background:none;border:0;text-align:left;cursor:pointer;
+  font-size:12.5px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:100%}
+.presets .pr[data-on=true]{border-color:var(--acc)}
+.presets .pr[data-on=true] .nm{color:var(--acc);font-weight:600}
+.presets .pr .act{background:none;border:0;color:var(--fg-3);cursor:pointer;font-size:11px;
+  padding:4px 5px;border-radius:4px;flex:none}
+.presets .pr .act:hover{color:var(--fg);background:var(--line)}
+.presets .pr .act.del:hover{color:var(--warn)}
+.presets .empty{font-size:11px;color:var(--fg-3);padding:3px 0}
+
 /* mobile bottom bar (hidden on desktop) */
 .mbar{display:none}
 
@@ -212,7 +276,14 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 @media (max-width:900px){
   :root{--ctl:34px;--lab:78px}
   .app{display:flex;flex-direction:column}
-  .stage{order:0;flex:none;height:40vh;padding:10px 12px 6px;gap:8px;background:none}
+  /* height comes from --vh, never static vh, so the keyboard cannot squeeze
+     the controls out of view */
+  .stage{order:0;flex:none;height:calc(var(--vh,100dvh) * 0.40);padding:10px 12px 6px;gap:8px;background:none;
+    transition:height .16s ease}
+  /* while a field is focused the canvas becomes a short live strip */
+  :root[data-kb="1"] .stage{height:96px;padding:6px 12px 2px;gap:0}
+  :root[data-kb="1"] .stage .tools,
+  :root[data-kb="1"] .stage .readout{display:none}
   .insp{order:1;flex:1;min-height:0;border-left:0;border-top:1px solid var(--line);background:var(--panel)}
   .insp-top{padding:8px 11px}
   .insp-top .mark{display:none}

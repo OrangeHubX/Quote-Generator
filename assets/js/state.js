@@ -1,14 +1,46 @@
 /* state.js — Editable state, viewport sizing and the coalesced redraw scheduler. */
-/* ---------- viewport ---------- */
+/* ---------- viewport ----------
+   Every mobile height derives from --vh, which tracks the *visual* viewport, so
+   the layout shrinks with the on-screen keyboard instead of overflowing behind
+   it. Static vh units must not be used for layout heights. */
 function syncVH(){
-  const h=(window.visualViewport?window.visualViewport.height:window.innerHeight);
-  document.documentElement.style.setProperty("--vh",Math.round(h)+"px");
+  const vv=window.visualViewport;
+  const h=Math.round(vv?vv.height:window.innerHeight);
+  document.documentElement.style.setProperty("--vh",h+"px");
   scheduleDraw();
 }
+/* Editing state drives the mobile canvas strip. Focus is the reliable signal —
+   some browsers resize the layout viewport for the keyboard and some don't. */
+const KB_SEL="input:not([type=file]):not([type=color]),textarea";
+function setEditing(on){
+  const root=document.documentElement;
+  const v=on?"1":"0";
+  if(root.dataset.kb===v)return;
+  root.dataset.kb=v;editing=on;
+  scheduleDraw();
+  /* the stage height animates, so re-fit the canvas once it has settled */
+  clearTimeout(setEditing._t);
+  setEditing._t=setTimeout(scheduleDraw,220);
+}
+document.addEventListener("focusin",e=>{
+  if(e.target.matches&&e.target.matches(KB_SEL)){
+    setEditing(true);
+    /* let the strip collapse first, then bring the field into view */
+    setTimeout(()=>{try{e.target.scrollIntoView({block:"center",behavior:"smooth"});}catch(_){}},210);
+  }
+});
+document.addEventListener("focusout",()=>{
+  setTimeout(()=>{
+    const a=document.activeElement;
+    if(!(a&&a.matches&&a.matches(KB_SEL)))setEditing(false);
+  },80);
+});
 if(window.visualViewport){
   window.visualViewport.addEventListener("resize",syncVH);
+  window.visualViewport.addEventListener("scroll",syncVH);
 }
 window.addEventListener("resize",syncVH);
+window.addEventListener("orientationchange",()=>setTimeout(syncVH,180));
 
 /* ---------- draw scheduler (coalesce work into one frame) ---------- */
 let drawPending=false;

@@ -129,13 +129,11 @@ document.addEventListener("keydown",e=>{
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="h"){e.preventDefault();toggleHL();}
   if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){e.preventDefault();$("#dl").click();}
 });
-[ta,outletEl,urlEl].forEach(el=>{
-  el.addEventListener("focus",()=>{
-    editing=true;
-    if(isPhone()&&!viewPinned){S.view="card";setViewChip();}
-    scheduleDraw();
-  });
-  el.addEventListener("blur",()=>{editing=false;setTimeout(scheduleDraw,140);});
+/* the strip is short, so fit the card into it unless the user pinned a view
+   (setEditing in state.js handles the strip itself) */
+document.addEventListener("focusin",e=>{
+  if(!isPhone()||viewPinned)return;
+  if(e.target.matches&&e.target.matches(KB_SEL)&&S.view!=="card"){S.view="card";setViewChip();scheduleDraw();}
 });
 
 /* ---------- social text inputs ---------- */
@@ -144,7 +142,7 @@ function bindText(id,key,fmt){
   el.addEventListener("input",e=>{S[key]=e.target.value;markFilled(el);invalidateLayout();scheduleDraw();});
 }
 ["name","handle","sub","time","audio","mediaSrc"].forEach(id=>bindText(id,id));
-["follow","xSlash","likeOn"].forEach(id=>$("#"+id).addEventListener("change",e=>{S[id]=e.target.checked;invalidateLayout();scheduleDraw();}));
+["follow","likeOn"].forEach(id=>$("#"+id).addEventListener("change",e=>{S[id]=e.target.checked;invalidateLayout();scheduleDraw();}));
 
 /* metrics grid built dynamically per design */
 function buildMetrics(){
@@ -315,6 +313,7 @@ function applyDesign(){
   const P=d();
   const social=P.social;
   $("#sourceCard").classList.toggle("hide",social);
+  $("#showCard").classList.toggle("hide",!social);
   $("#socialCard").classList.toggle("hide",!social);
   $("#metricsCard").classList.toggle("hide",!social);
   $("#faceWrap").classList.toggle("hide",social);
@@ -343,22 +342,20 @@ function applyDesign(){
     $("#badgeRow").classList.toggle("hide",brand==="yt"||brand==="reddit");
     $("#avShapeRow").classList.toggle("hide",brand!=="x");
     $("#followRow").classList.toggle("hide",!(S.design==="fb-post"||S.design==="ig-post"));
-    $("#slashRow").classList.toggle("hide",brand!=="x");
     $("#audioRow").classList.toggle("hide",S.design!=="ig-post");
     const showMedia=(S.design==="x-post"||S.design==="x-reply"||S.design==="reddit-post"||
                      S.design==="fb-post"||S.design==="ig-post");
     $("#mediaDrop").classList.toggle("hide",!showMedia);
     $("#mediaSrcRow").classList.toggle("hide",brand!=="x");
-    buildMetrics();
+    buildMetrics();buildShowChips();
     /* sync identity inputs + controls */
     ["name","handle","sub","time","audio","mediaSrc"].forEach(id=>{const el=$("#"+id);if(el){el.value=S[id]||"";markFilled(el);}});
     [...$("#badge").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===S.badge));
     [...$("#avShape").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===S.avShape));
-    $("#follow").checked=S.follow;$("#xSlash").checked=S.xSlash;$("#likeOn").checked=S.likeOn;
+    $("#follow").checked=S.follow;$("#likeOn").checked=S.likeOn;
   }
   invalidateLayout();updateFabLabel();scheduleDraw();
 }
-$("#design").addEventListener("change",e=>{S.design=e.target.value;applyDesign();});
 
 /* ---------- view / play ---------- */
 function setViewChip(){
@@ -378,8 +375,3 @@ $("#play").addEventListener("click",()=>{
   draw();
 });
 
-/* ---------- init ---------- */
-setHl(S.hlColor,true);markFilled(ta);autogrow(ta);
-$("#overLab").textContent="Overshoot";
-updateFabLabel();
-syncVH();draw();setTimeout(draw,150);
