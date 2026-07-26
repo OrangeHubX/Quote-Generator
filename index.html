@@ -5,263 +5,292 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
 <title>Quote Slate</title>
 <style>
+/* ============ tokens: dark-only tool chrome ============ */
 :root{
-  --primary:#BFC2FF; --on-primary:#232876; --primary-container:#3B408E; --on-primary-container:#E0E0FF;
-  --secondary:#C4C5DD; --on-secondary:#2D2F42; --secondary-container:#434659; --on-secondary-container:#E0E1F9;
-  --error:#FFB4AB;
-  --surface:#121318; --on-surface:#E4E1E9; --on-surface-var:#C6C5D0;
-  --sc-low:#1A1B21; --sc:#1E1F25; --sc-high:#292A30; --sc-highest:#34343B;
-  --outline:#90909A; --outline-var:#45464F;
-  --inverse-surface:#E4E1E9; --inverse-on-surface:#303036;
+  --bg:#0B0C0F; --panel:#12141A; --sub-panel:#171A21;
+  --input:#1D2027; --input-hi:#252932; --line:#262A33; --line-2:#333844;
+  --fg:#E7E9F0; --fg-2:#98A0B2; --fg-3:#6B7183;
+  --acc:#7D93FF; --acc-soft:rgba(125,147,255,.15); --acc-ink:#0B0C0F;
+  --warn:#FF8E7E; --ok:#6FD69A;
   --hl:#FFA8C5;
-  --ui:Roboto,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-  --mono:ui-monospace,"Roboto Mono","SF Mono",Menlo,monospace;
-  --ease:cubic-bezier(.2,0,0,1);
-  --thumb:18px;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,monospace;
+  --r:6px; --r-lg:9px;
+  --ctl:28px;              /* control height */
+  --lab:86px;              /* label column */
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;min-width:0}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
-body{margin:0;background:var(--surface);color:var(--on-surface);font-family:var(--ui);
-  font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
-button,input,select,textarea{font-family:inherit}
-
-*{scrollbar-width:thin;scrollbar-color:var(--outline-var) transparent}
-*::-webkit-scrollbar{width:8px;height:8px}
-*::-webkit-scrollbar-track{background:transparent}
-*::-webkit-scrollbar-thumb{background:var(--outline-var);border-radius:100px}
-*::-webkit-scrollbar-thumb:hover{background:var(--outline)}
-*::-webkit-scrollbar-corner{background:transparent}
-
-.app{display:grid;grid-template-columns:minmax(390px,440px) 1fr;height:100dvh;height:var(--vh,100dvh);overflow:hidden}
-
-/* ---------- panel ---------- */
-.panel{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--sc-low);overflow:hidden}
-.phead{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 10px}
-.phead h1{margin:0;font-size:20px;font-weight:500;letter-spacing:.2px}
-.phead p{margin:1px 0 0;font-size:11px;color:var(--on-surface-var)}
-.designsel{display:flex;flex-direction:column;gap:3px;align-items:flex-end}
-.designsel span{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--on-surface-var)}
-.designsel select{background:var(--sc-high);color:var(--on-surface);border:1px solid var(--outline-var);
-  border-radius:10px;padding:8px 10px;font-size:13px;font-weight:500;max-width:210px;cursor:pointer}
-
-.tabs{flex:none;display:flex;gap:2px;padding:2px 12px 0;border-bottom:1px solid var(--outline-var);overflow-x:auto;scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tabs button{flex:1 1 0;min-width:74px;background:none;border:0;color:var(--on-surface-var);
-  font-size:13px;font-weight:500;cursor:pointer;padding:12px 8px 11px;position:relative;white-space:nowrap;
-  border-bottom:2px solid transparent;transition:color .15s}
-.tabs button:hover{color:var(--on-surface)}
-.tabs button[aria-selected=true]{color:var(--primary);border-bottom-color:var(--primary)}
-
-.pages{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px 14px 24px}
-.page{display:none}
-.page[data-on=true]{display:block;animation:in .18s var(--ease)}
-@keyframes in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-.card{background:var(--sc);border-radius:16px;padding:14px;margin-bottom:10px;overflow:hidden}
-.card h2{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--primary);letter-spacing:.2px;
-  display:flex;align-items:center;gap:8px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:13px;
+  line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .hide{display:none!important}
 
-.actions{flex:none;display:flex;gap:10px;align-items:center;padding:10px 14px;
-  background:var(--sc-low);border-top:1px solid var(--outline-var)}
-.actions .field{flex:1}
+*{scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:#454b59;background-clip:content-box}
 
-/* ---------- fields ---------- */
-.field{position:relative;background:var(--sc-high);border-radius:10px 10px 3px 3px;
-  border-bottom:1px solid var(--outline);transition:border-color .15s}
-.field:focus-within{border-bottom:2px solid var(--primary)}
-.field input,.field textarea{width:100%;background:none;border:0;outline:none;color:var(--on-surface);
-  font-size:16px;line-height:1.5;padding:22px 14px 7px;resize:none;display:block}
-.field textarea{min-height:74px;max-height:230px;overflow-y:auto}
-.field label{position:absolute;left:14px;top:15px;font-size:15px;color:var(--on-surface-var);
-  pointer-events:none;transition:.15s var(--ease)}
-.field:focus-within label,
-.field input:not(:placeholder-shown)+label,
-.field textarea:not(:placeholder-shown)+label,
-.field .filled+label{top:6px;font-size:11px}
-.field:focus-within label{color:var(--primary)}
-.field.compact input{padding:21px 12px 6px}
-.field.compact label{left:12px;top:15px}
-.support{font-size:12px;color:var(--on-surface-var);margin:8px 0 0;overflow-wrap:anywhere}
-.support b{color:var(--on-surface);font-weight:500}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.spacer{height:10px}
+/* ============ shell ============ */
+.app{display:grid;grid-template-columns:1fr 366px;height:100dvh;height:var(--vh,100dvh);overflow:hidden}
 
-/* ---------- autocomplete ---------- */
-.ac{list-style:none;margin:6px 0 0;padding:6px;background:var(--sc-high);border-radius:12px;
-  max-height:262px;overflow-y:auto;display:none;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+/* ---- canvas stage ---- */
+.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  padding:20px;min-height:0;min-width:0;overflow:hidden;background:
+    radial-gradient(circle at 50% 38%,#15171E 0%,var(--bg) 72%)}
+.viewer{line-height:0;border-radius:10px;overflow:hidden}
+#preview{display:block;cursor:zoom-in;box-shadow:0 12px 40px rgba(0,0,0,.55);
+  background:conic-gradient(#22242B 25%,#191B21 0 50%,#22242B 0 75%,#191B21 0) 0 0/18px 18px}
+.tools{display:flex;gap:6px;align-items:center}
+.chip{height:27px;padding:0 10px;border-radius:var(--r);border:1px solid var(--line);
+  background:var(--panel);color:var(--fg-2);font-size:12px;font-weight:500;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:background .1s,color .1s}
+.chip:hover{background:var(--input-hi);color:var(--fg)}
+.chip svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chip[aria-pressed=true]{background:var(--acc-soft);color:var(--acc);border-color:transparent}
+.readout{display:flex;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--fg-3)}
+.readout b{color:var(--fg-2);font-weight:500}
+.readout b.warn{color:var(--warn)}
+
+/* ---- inspector ---- */
+.insp{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-left:1px solid var(--line)}
+.insp-top{flex:none;display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.insp-top .mark{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--fg-2);flex:none}
+select.sel{flex:1;height:var(--ctl);background:var(--input);border:1px solid var(--line);border-radius:var(--r);
+  color:var(--fg);padding:0 8px;font-size:12.5px;font-weight:500;cursor:pointer;
+  appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--fg-3) 50%),linear-gradient(135deg,var(--fg-3) 50%,transparent 50%);
+  background-position:calc(100% - 14px) 12px,calc(100% - 9px) 12px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+select.sel:hover{background-color:var(--input-hi)}
+select.sel:focus-visible{outline:2px solid var(--acc);outline-offset:-1px}
+
+.tabs{flex:none;display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;height:28px;background:none;border:0;border-radius:var(--r);color:var(--fg-3);
+  font-size:12px;font-weight:600;cursor:pointer;transition:background .1s,color .1s}
+.tabs button:hover{background:var(--input);color:var(--fg-2)}
+.tabs button[aria-selected=true]{background:var(--acc-soft);color:var(--acc)}
+
+.pages{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:2px 0 14px}
+.page{display:none}
+.page[data-on=true]{display:block}
+
+.insp-foot{flex:none;padding:9px 12px;border-top:1px solid var(--line);display:flex;align-items:center;gap:9px}
+#dl{flex:1;height:34px;border:0;border-radius:var(--r);background:var(--acc);color:var(--acc-ink);
+  font-size:13px;font-weight:650;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+#dl:hover{filter:brightness(1.08)}
+#dl[disabled]{opacity:.5;cursor:progress}
+#dl svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============ dense rows ============ */
+.cap{display:flex;align-items:center;gap:8px;margin:14px 12px 7px;font-size:10px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--fg-3)}
+.cap::after{content:"";flex:1;height:1px;background:var(--line)}
+.cap:first-child{margin-top:11px}
+
+.row{display:grid;grid-template-columns:var(--lab) 1fr;align-items:center;gap:9px;
+  padding:2px 12px;min-height:30px}
+.row.sl{grid-template-columns:var(--lab) 1fr 44px 20px}
+.row.wide{grid-template-columns:1fr}
+.row>label,.row>.rl{font-size:11.5px;color:var(--fg-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.stack{display:block;padding:3px 12px}
+.row.stack>label{display:block;margin-bottom:5px}
+.note{font-size:11px;color:var(--fg-3);padding:4px 12px 2px;line-height:1.45}
+.note b{color:var(--fg-2);font-weight:600}
+.btn-row{display:flex;gap:6px;padding:6px 12px 2px}
+
+/* text inputs */
+.txt{width:100%;height:var(--ctl);background:var(--input);border:1px solid var(--line);
+  border-radius:var(--r);padding:0 8px;outline:none;transition:border-color .1s}
+.txt:hover{background:var(--input-hi)}
+.txt:focus{border-color:var(--acc);background:var(--input)}
+.txt::placeholder{color:var(--fg-3)}
+textarea.txt{height:auto;min-height:72px;max-height:210px;padding:7px 8px;resize:none;
+  overflow-y:auto;line-height:1.5;font-size:13.5px}
+.txt.mono{font-family:var(--mono);text-transform:uppercase}
+
+/* numeric field beside a slider */
+.num{width:100%;height:24px;background:var(--input);border:1px solid var(--line);border-radius:5px;
+  font-family:var(--mono);font-size:11.5px;text-align:right;padding:0 5px;outline:none}
+.num:hover{background:var(--input-hi)}
+.num:focus{border-color:var(--acc)}
+.unit{font-family:var(--mono);font-size:10.5px;color:var(--fg-3)}
+
+/* buttons */
+.btn{height:27px;padding:0 10px;border-radius:var(--r);border:1px solid var(--line);
+  background:var(--input);color:var(--fg);font-size:12px;font-weight:500;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--input-hi)}
+.btn.ghost{background:none;border-color:transparent;color:var(--acc)}
+.btn.ghost:hover{background:var(--acc-soft)}
+.btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+
+/* segmented */
+.seg{display:flex;height:var(--ctl);background:var(--input);border:1px solid var(--line);
+  border-radius:var(--r);padding:2px;gap:2px}
+.seg button{flex:1 1 0;min-width:0;background:none;border:0;border-radius:4px;color:var(--fg-3);
+  font-size:11.5px;font-weight:600;cursor:pointer;padding:0 3px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;transition:background .1s,color .1s}
+.seg button:hover{color:var(--fg)}
+.seg button[aria-pressed=true]{background:var(--acc-soft);color:var(--acc)}
+
+/* switch */
+.sw{position:relative;display:flex;align-items:center;justify-content:flex-end;cursor:pointer}
+.sw input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.sw .tr{width:32px;height:18px;border-radius:9px;background:var(--input-hi);
+  border:1px solid var(--line-2);position:relative;transition:.14s;flex:none}
+.sw .tr::after{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;
+  background:var(--fg-3);transition:.14s}
+.sw input:checked+.tr{background:var(--acc);border-color:var(--acc)}
+.sw input:checked+.tr::after{left:16px;background:var(--acc-ink)}
+.sw input:focus-visible+.tr{outline:2px solid var(--acc);outline-offset:2px}
+.rowsw{grid-template-columns:1fr auto}
+.rowsw .rl small{display:block;font-size:10.5px;color:var(--fg-3);margin-top:1px;white-space:normal}
+
+/* sliders — fill tracks the handle exactly */
+input[type=range]{-webkit-appearance:none;appearance:none;background:none;width:100%;height:20px;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+  background:linear-gradient(90deg,var(--acc) 0 var(--fill,50%),var(--input-hi) var(--fill,50%) 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:#EDEFF6;border:0;box-shadow:0 1px 3px rgba(0,0,0,.5);margin-top:-4.5px}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--input-hi)}
+input[type=range]::-moz-range-progress{height:4px;border-radius:2px;background:var(--acc)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#EDEFF6;border:0}
+input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--acc-soft)}
+
+/* colour swatches */
+.sw-grid{display:flex;gap:6px;align-items:center}
+.sw-grid button{width:24px;height:24px;border-radius:5px;border:1px solid rgba(255,255,255,.14);
+  cursor:pointer;position:relative;flex:none;padding:0}
+.sw-grid button[aria-pressed=true]{box-shadow:0 0 0 2px var(--acc)}
+.pick{position:relative;width:24px;height:24px;border-radius:5px;flex:none;overflow:hidden;cursor:pointer;
+  background:conic-gradient(#f66,#fd6,#6f9,#6cf,#a6f,#f66);border:1px solid rgba(255,255,255,.14)}
+.pick input{position:absolute;inset:-6px;width:40px;height:40px;border:0;padding:0;background:none;cursor:pointer;opacity:0}
+.pick[data-active=true]{box-shadow:0 0 0 2px var(--acc)}
+
+/* autocomplete */
+.ac{list-style:none;margin:4px 12px 0;padding:4px;background:var(--sub-panel);border:1px solid var(--line-2);
+  border-radius:var(--r);max-height:214px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.55)}
 .ac[data-open=true]{display:block}
-.ac li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;
-  border-radius:8px;cursor:pointer;font-size:15px}
-.ac li small{color:var(--on-surface-var);font-size:12px;font-family:var(--mono);flex:none;
+.ac li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;
+  border-radius:4px;cursor:pointer;font-size:12.5px}
+.ac li small{color:var(--fg-3);font-size:10.5px;font-family:var(--mono);flex:none;
   overflow:hidden;text-overflow:ellipsis;max-width:46%}
-.ac li b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ac li[aria-selected=true]{background:var(--secondary-container);color:var(--on-secondary-container)}
-.ac li[aria-selected=true] small{color:var(--on-secondary-container)}
+.ac li b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac li[aria-selected=true]{background:var(--acc-soft);color:var(--acc)}
+.ac li[aria-selected=true] small{color:var(--acc)}
 
-/* ---------- buttons ---------- */
-.btn{border:0;border-radius:20px;height:38px;padding:0 16px;font-size:13px;font-weight:500;
-  cursor:pointer;display:inline-flex;align-items:center;gap:8px;max-width:100%}
-.btn.tonal{background:var(--secondary-container);color:var(--on-secondary-container)}
-.btn.text{background:none;color:var(--primary);padding:0 12px}
-.btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex:none}
-.btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-
-.segmented{display:flex;border:1px solid var(--outline-var);border-radius:14px;overflow:hidden;height:38px}
-.segmented button{flex:1 1 0;min-width:0;background:none;border:0;border-right:1px solid var(--outline-var);
-  color:var(--on-surface-var);font-size:12px;font-weight:500;cursor:pointer;padding:0 4px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .12s}
-.segmented button:last-child{border-right:0}
-.segmented button:hover{background:var(--sc-high)}
-.segmented button[aria-pressed=true]{background:var(--secondary-container);color:var(--on-secondary-container)}
-
-/* ---------- switch rows ---------- */
-.swrow{position:relative;display:flex;align-items:center;justify-content:space-between;gap:14px;
-  padding:9px 2px;cursor:pointer;min-height:46px}
-.swrow .lbl{flex:1;min-width:0;font-size:14px;overflow-wrap:anywhere}
-.swrow .lbl small{display:block;font-size:12px;color:var(--on-surface-var);margin-top:2px}
-.swrow input{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;margin:0;pointer-events:none}
-.track{flex:none;width:50px;height:30px;border-radius:16px;background:var(--sc-highest);
-  border:2px solid var(--outline);position:relative;transition:.2s var(--ease)}
-.track::after{content:"";position:absolute;left:6px;top:5px;width:16px;height:16px;border-radius:50%;
-  background:var(--outline);transition:.2s var(--ease)}
-.swrow input:checked+.track{background:var(--primary);border-color:var(--primary)}
-.swrow input:checked+.track::after{left:22px;top:2px;width:22px;height:22px;background:var(--on-primary)}
-.swrow input:focus-visible+.track{outline:2px solid var(--primary);outline-offset:3px}
-
-/* ---------- sliders (fixed fill tracks the handle) ---------- */
-.slider{display:flex;align-items:center;gap:12px;margin:2px 0 4px;--fill:50%}
-.slider input[type=range]{flex:1;min-width:0;-webkit-appearance:none;appearance:none;background:none;height:34px;margin:0}
-.slider input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;
-  background:linear-gradient(90deg,var(--primary) 0 var(--fill),var(--sc-highest) var(--fill) 100%)}
-.slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:var(--thumb);height:var(--thumb);
-  border-radius:50%;background:var(--primary);border:3px solid var(--sc-low);box-shadow:0 0 0 1px var(--primary);
-  margin-top:calc((6px - var(--thumb))/2)}
-.slider input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--sc-highest)}
-.slider input[type=range]::-moz-range-progress{height:6px;border-radius:3px;background:var(--primary)}
-.slider input[type=range]::-moz-range-thumb{width:var(--thumb);height:var(--thumb);border-radius:50%;
-  background:var(--primary);border:3px solid var(--sc-low)}
-.slider input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px rgba(191,194,255,.4)}
-.slider output{font-family:var(--mono);font-size:12px;color:var(--on-surface-var);min-width:52px;text-align:right;flex:none}
-.rowlab{display:block;font-size:13px;color:var(--on-surface-var);margin:12px 0 4px}
-.rowlab:first-child{margin-top:2px}
-
-/* ---------- colour ---------- */
-.swatches{display:flex;gap:12px;flex-wrap:wrap}
-.swatches button{width:38px;height:38px;border-radius:50%;border:0;cursor:pointer;position:relative;flex:none}
-.swatches button[aria-pressed=true]::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--primary)}
-.pickrow{display:flex;gap:12px;align-items:center;margin-top:14px}
-.pickwrap{position:relative;width:40px;height:40px;border-radius:50%;flex:none;overflow:hidden;
-  background:conic-gradient(#f66,#fd6,#6f9,#6cf,#a6f,#f66);box-shadow:inset 0 0 0 2px var(--outline-var)}
-.pickwrap input{position:absolute;inset:-6px;width:52px;height:52px;border:0;padding:0;background:none;cursor:pointer;opacity:0}
-.pickwrap[data-active=true]{box-shadow:0 0 0 2px var(--primary),inset 0 0 0 2px transparent}
-.hexf{flex:1;min-width:0}
-.hexf input{font-family:var(--mono);text-transform:uppercase;padding:20px 12px 6px}
-.hexf label{left:12px;top:14px}
-
-/* ---------- image drop ---------- */
-.drop{display:flex;align-items:center;gap:12px;background:var(--sc-high);border:1px dashed var(--outline-var);
-  border-radius:12px;padding:12px;cursor:pointer;transition:border-color .15s}
-.drop:hover{border-color:var(--outline)}
-.drop .thumb{width:48px;height:48px;border-radius:8px;flex:none;background:var(--sc-highest);
-  background-size:cover;background-position:center;display:grid;place-items:center;color:var(--on-surface-var)}
-.drop .thumb svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2}
-.drop .lbl{flex:1;min-width:0;font-size:13px}
-.drop .lbl small{display:block;color:var(--on-surface-var);font-size:11px;margin-top:2px;
+/* image drop */
+.drop{display:flex;align-items:center;gap:8px;background:var(--input);border:1px dashed var(--line-2);
+  border-radius:var(--r);padding:7px;cursor:pointer;margin:3px 12px}
+.drop:hover{border-color:var(--acc);background:var(--input-hi)}
+.drop .th{width:32px;height:32px;border-radius:4px;flex:none;background:var(--input-hi);
+  background-size:cover;background-position:center;display:grid;place-items:center;color:var(--fg-3)}
+.drop .th svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}
+.drop .lb{flex:1;min-width:0;font-size:11.5px}
+.drop .lb small{display:block;color:var(--fg-3);font-size:10.5px;margin-top:1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drop input[type=file]{display:none}
-.drop .x{background:none;border:0;color:var(--on-surface-var);cursor:pointer;font-size:20px;padding:4px 8px}
+.drop .x{background:none;border:0;color:var(--fg-3);cursor:pointer;font-size:16px;padding:2px 5px;line-height:1}
+.drop .x:hover{color:var(--warn)}
 
-/* ---------- word chips ---------- */
-.words{display:flex;flex-wrap:wrap;gap:8px;touch-action:pan-y;user-select:none;-webkit-user-select:none;
-  background:var(--sc-high);border-radius:14px;padding:12px;min-height:100px;align-content:flex-start;max-height:220px;overflow-y:auto}
-.w{font-size:15px;background:none;border:1px solid var(--outline-var);color:var(--on-surface);
-  border-radius:8px;padding:8px 11px;cursor:pointer;line-height:1;touch-action:pan-y;
+/* word chips */
+.words{display:flex;flex-wrap:wrap;gap:5px;touch-action:pan-y;user-select:none;-webkit-user-select:none;
+  background:var(--input);border:1px solid var(--line);border-radius:var(--r);padding:8px;
+  min-height:84px;max-height:196px;overflow-y:auto;align-content:flex-start;margin:3px 12px}
+.w{font-size:12.5px;background:var(--input-hi);border:1px solid var(--line-2);color:var(--fg);
+  border-radius:4px;padding:4px 7px;cursor:pointer;line-height:1.15;touch-action:pan-y;
   max-width:100%;overflow-wrap:anywhere;text-align:left}
-.w.on{background:var(--hl);color:#101014;border-color:var(--hl);font-weight:600}
+.w.on{background:var(--hl);color:#101014;border-color:var(--hl);font-weight:650}
 
-/* ---------- stage ---------- */
-.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
-  padding:18px;overflow:hidden;min-height:0;min-width:0}
-.viewer{line-height:0;border-radius:12px;overflow:hidden}
-#preview{display:block;cursor:zoom-in;box-shadow:0 8px 28px rgba(0,0,0,.5);
-  background:conic-gradient(#26262C 25%,#1C1C22 0 50%,#26262C 0 75%,#1C1C22 0) 0 0/16px 16px}
-.tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.chip{height:34px;padding:0 13px;border-radius:8px;border:1px solid var(--outline-var);background:none;
-  color:var(--on-surface-var);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
-.chip svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.chip[aria-pressed=true]{background:var(--secondary-container);color:var(--on-secondary-container);border-color:transparent}
-.readout{display:flex;gap:16px;font-family:var(--mono);font-size:11px;color:var(--on-surface-var);flex-wrap:wrap;justify-content:center}
-.readout b{color:var(--on-surface);font-weight:500}
-.readout b.warn{color:var(--error)}
+/* bezier graph */
+#curve{width:100%;height:132px;display:block;background:var(--input);border:1px solid var(--line);
+  border-radius:var(--r);touch-action:none;cursor:crosshair}
+.gwrap{padding:3px 12px}
 
-.fab{height:52px;padding:0 20px;border:0;border-radius:14px;background:var(--primary-container);
-  color:var(--on-primary-container);font-size:15px;font-weight:500;cursor:pointer;flex:none;
-  display:inline-flex;align-items:center;justify-content:center;gap:10px;
-  box-shadow:0 4px 14px rgba(0,0,0,.45)}
-.fab[disabled]{opacity:.55;cursor:progress}
-.fab svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* mobile bottom bar (hidden on desktop) */
+.mbar{display:none}
 
-/* ---------- curve / bezier editor ---------- */
-.curvewrap{position:relative}
-#curve{width:100%;height:150px;display:block;background:var(--sc-high);border-radius:14px;touch-action:none}
-.presetrow{display:flex;gap:8px;margin-top:10px;align-items:center}
-.presetrow select{flex:1;background:var(--sc-high);color:var(--on-surface);border:1px solid var(--outline-var);
-  border-radius:10px;padding:9px 10px;font-size:13px}
-
-.snack{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--inverse-surface);
-  color:var(--inverse-on-surface);padding:14px 18px;border-radius:8px;font-size:14px;opacity:0;
-  pointer-events:none;transition:.22s var(--ease);z-index:60;max-width:min(92vw,420px);text-align:center;
-  box-shadow:0 4px 16px rgba(0,0,0,.5)}
+.snack{position:fixed;left:50%;bottom:18px;transform:translate(-50%,14px);background:#EDEFF6;color:#14161B;
+  padding:9px 14px;border-radius:var(--r);font-size:12.5px;font-weight:500;opacity:0;pointer-events:none;
+  transition:.18s;z-index:60;max-width:min(92vw,400px);text-align:center;box-shadow:0 8px 26px rgba(0,0,0,.6)}
 .snack.on{opacity:1;transform:translate(-50%,0)}
 
-/* ---------- mobile ---------- */
+/* ============ mobile: vertical-first ============ */
 @media (max-width:900px){
+  :root{--ctl:34px;--lab:78px}
   .app{display:flex;flex-direction:column}
-  .stage{flex:none;height:38vh;order:0;padding:10px 14px 4px;gap:8px}
-  .panel{flex:1;min-height:0;order:1}
-  .phead{padding:10px 14px 6px}
-  .phead h1{font-size:17px}
-  .designsel select{max-width:150px}
-  .pages{padding:12px 14px calc(20px + env(safe-area-inset-bottom))}
-  .snack{bottom:calc(24px + env(safe-area-inset-bottom))}
+  .stage{order:0;flex:none;height:40vh;padding:10px 12px 6px;gap:8px;background:none}
+  .insp{order:1;flex:1;min-height:0;border-left:0;border-top:1px solid var(--line);background:var(--panel)}
+  .insp-top{padding:8px 11px}
+  .insp-top .mark{display:none}
+  .tabs{display:none}                 /* moved to the thumb zone */
+  .insp-foot{display:none}            /* download lives in the bottom bar */
+  .pages{padding-bottom:10px}
+  .row{min-height:36px;padding:3px 11px}
+  .row.sl{grid-template-columns:var(--lab) 1fr 46px 20px}
+  .cap{margin:15px 11px 7px}
+  .note,.drop,.words,.gwrap,.ac{margin-left:11px;margin-right:11px}
+  .note{padding-left:0;padding-right:0}
+  input[type=range]{height:34px}
+  input[type=range]::-webkit-slider-thumb{width:17px;height:17px;margin-top:-6.5px}
+  .num{height:28px;font-size:12.5px}
+  .sw .tr{width:38px;height:22px;border-radius:11px}
+  .sw .tr::after{width:16px;height:16px}
+  .sw input:checked+.tr::after{left:18px}
+  .sw-grid button,.pick{width:30px;height:30px}
+  .mbar{display:flex;order:2;flex:none;align-items:center;gap:4px;padding:6px 8px
+    calc(6px + env(safe-area-inset-bottom));background:var(--sub-panel);border-top:1px solid var(--line)}
+  .mbar .mt{flex:1;height:40px;background:none;border:0;border-radius:var(--r);color:var(--fg-3);
+    font-size:11.5px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:2px}
+  .mbar .mt svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .mbar .mt[aria-selected=true]{background:var(--acc-soft);color:var(--acc)}
+  .mbar .go{flex:none;width:52px;height:40px;border:0;border-radius:var(--r);background:var(--acc);
+    color:var(--acc-ink);cursor:pointer;display:grid;place-items:center}
+  .mbar .go svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+  .mbar .go[disabled]{opacity:.5}
+  .snack{bottom:calc(66px + env(safe-area-inset-bottom))}
 }
-@media (max-width:520px){ .grid2{grid-template-columns:1fr} }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 <div class="app">
 
-  <section class="panel">
-    <header class="phead">
-      <div class="brand"><h1>Quote Slate</h1><p id="subtitle">9:16 source cards for Shorts</p></div>
-      <label class="designsel"><span>Design</span>
-        <select id="design" aria-label="Design template">
-          <optgroup label="News">
-            <option value="quote">Quote card</option>
-          </optgroup>
-          <optgroup label="X (Twitter)">
-            <option value="x-post">X — Post</option>
-            <option value="x-reply">X — Reply</option>
-          </optgroup>
-          <optgroup label="Reddit">
-            <option value="reddit-post">Reddit — Post + image</option>
-            <option value="reddit-comment">Reddit — Comment + image</option>
-          </optgroup>
-          <optgroup label="YouTube">
-            <option value="yt-comment">YouTube — Comment</option>
-          </optgroup>
-          <optgroup label="Facebook">
-            <option value="fb-post">Facebook — Post</option>
-            <option value="fb-comment">Facebook — Comment</option>
-          </optgroup>
-          <optgroup label="Instagram">
-            <option value="ig-post">Instagram — Post</option>
-            <option value="ig-comment">Instagram — Comment</option>
-          </optgroup>
-        </select>
-      </label>
-    </header>
+  <main class="stage">
+    <div class="viewer"><canvas id="preview"></canvas></div>
+    <div class="tools">
+      <button class="chip" id="view" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Fit card</span></button>
+      <button class="chip" id="play"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg><span>Play</span></button>
+    </div>
+    <div class="readout"><div>Out <b id="rOut">—</b></div><div>Size <b id="rFit">—</b></div></div>
+  </main>
+
+  <section class="insp">
+    <div class="insp-top">
+      <span class="mark">Quote Slate</span>
+      <select class="sel" id="design" aria-label="Design">
+        <optgroup label="News"><option value="quote">Quote card</option></optgroup>
+        <optgroup label="X (Twitter)">
+          <option value="x-post">X — Post</option>
+          <option value="x-reply">X — Reply</option>
+        </optgroup>
+        <optgroup label="Reddit">
+          <option value="reddit-post">Reddit — Post</option>
+          <option value="reddit-comment">Reddit — Comment</option>
+        </optgroup>
+        <optgroup label="YouTube"><option value="yt-comment">YouTube — Comment</option></optgroup>
+        <optgroup label="Facebook">
+          <option value="fb-post">Facebook — Post</option>
+          <option value="fb-comment">Facebook — Comment</option>
+        </optgroup>
+        <optgroup label="Instagram">
+          <option value="ig-post">Instagram — Post</option>
+          <option value="ig-comment">Instagram — Comment</option>
+        </optgroup>
+      </select>
+      <span id="subtitle" class="hide"></span>
+    </div>
 
     <nav class="tabs" role="tablist">
       <button data-p="content" role="tab" aria-selected="true">Content</button>
@@ -272,242 +301,234 @@ button,input,select,textarea{font-family:inherit}
 
     <div class="pages">
 
-      <!-- ============ CONTENT ============ -->
+      <!-- ===== CONTENT ===== -->
       <div class="page" data-page="content" data-on="true">
-
-        <div class="card">
-          <h2 id="bodyHead">Quote</h2>
-          <div class="segmented" id="mode" style="margin-bottom:12px">
-            <button data-v="type" aria-pressed="true">Type</button>
-            <button data-v="tap" aria-pressed="false">Tap to highlight</button>
+        <div class="cap" id="bodyHead">Text</div>
+        <div class="row"><label>Highlight by</label>
+          <div class="seg" id="mode"><button data-v="type" aria-pressed="true">Select</button><button data-v="tap">Tap words</button></div>
+        </div>
+        <div id="typeBox">
+          <div class="row stack"><label for="text" id="textLabel">Quote</label>
+            <textarea class="txt" id="text" spellcheck="false" placeholder="Paste the quote…"></textarea>
           </div>
-          <div id="typeBox">
-            <div class="field"><textarea id="text" placeholder=" " spellcheck="false"></textarea><label for="text" id="textLabel">Paste the quote</label></div>
-            <div class="btn-row">
-              <button class="btn tonal" id="hlBtn"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 16l9-9 3 3-9 9H6z"/></svg>Highlight</button>
-              <button class="btn text" id="clearBtn">Clear</button>
-            </div>
-          </div>
-          <div id="tapBox" style="display:none">
-            <div class="words" id="words"></div>
-            <div class="btn-row"><button class="btn text" id="clearBtn2">Clear highlights</button></div>
-            <p class="support">Tap a word to toggle. Drag sideways for a phrase, up and down to scroll.</p>
+          <div class="btn-row">
+            <button class="btn" id="hlBtn"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 16l9-9 3 3-9 9H6z"/></svg>Highlight <span style="color:var(--fg-3)">⌘H</span></button>
+            <button class="btn ghost" id="clearBtn">Clear</button>
           </div>
         </div>
+        <div id="tapBox" style="display:none">
+          <div class="words" id="words"></div>
+          <div class="btn-row"><button class="btn ghost" id="clearBtn2">Clear highlights</button></div>
+          <p class="note">Tap a word to toggle. Drag sideways for a phrase.</p>
+        </div>
 
-        <!-- quote-only source -->
-        <div class="card" id="sourceCard">
-          <h2>Source</h2>
-          <div class="field">
-            <input type="text" id="outlet" placeholder=" " spellcheck="false" autocomplete="off"
-                   role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="ac">
-            <label for="outlet">Outlet</label>
+        <!-- quote source -->
+        <div id="sourceCard">
+          <div class="cap">Source</div>
+          <div class="row"><label for="outlet">Outlet</label>
+            <input class="txt" type="text" id="outlet" spellcheck="false" autocomplete="off"
+                   role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="ac" placeholder="Start typing…">
           </div>
           <ul class="ac" id="ac" role="listbox" data-open="false"></ul>
-          <div class="spacer"></div>
-          <div class="field"><input type="text" id="url" placeholder=" " spellcheck="false" autocomplete="off"><label for="url">URL or date</label></div>
-          <p class="support">Start typing an outlet and pick from the list — the URL and today's date fill in. <b>A card with no source looks invented.</b></p>
+          <div class="row"><label for="url">URL / date</label>
+            <input class="txt" type="text" id="url" spellcheck="false" autocomplete="off">
+          </div>
+          <p class="note"><b>A card with no source looks invented.</b></p>
         </div>
 
-        <!-- social-only identity + meta -->
-        <div class="card hide" id="socialCard">
-          <h2 id="socialHead">Account</h2>
-          <div class="grid2">
-            <div class="field compact"><input type="text" id="name" placeholder=" " spellcheck="false"><label for="name">Display name</label></div>
-            <div class="field compact"><input type="text" id="handle" placeholder=" " spellcheck="false"><label for="handle" id="handleLabel">@handle</label></div>
-          </div>
-          <div class="spacer"></div>
-          <div class="grid2" id="subRow">
-            <div class="field compact"><input type="text" id="sub" placeholder=" " spellcheck="false"><label for="sub">Subreddit</label></div>
-            <div class="field compact"><input type="text" id="time" placeholder=" " spellcheck="false"><label for="time">Timestamp</label></div>
-          </div>
-          <div id="badgeRow"><span class="rowlab">Verified badge</span>
-            <div class="segmented" id="badge"><button data-v="off">Off</button><button data-v="blue" aria-pressed="true">Blue</button><button data-v="gold">Gold</button></div>
-          </div>
-          <div id="avShapeRow"><span class="rowlab">Avatar shape</span>
-            <div class="segmented" id="avShape"><button data-v="circle" aria-pressed="true">Circle</button><button data-v="square">Rounded square</button></div>
-          </div>
-          <div class="field compact hide" id="audioRow" style="margin-top:10px"><input type="text" id="audio" placeholder=" " spellcheck="false"><label for="audio">Audio line</label></div>
-          <label class="swrow hide" id="followRow"><span class="lbl">Show “Follow”</span><input type="checkbox" id="follow" checked><span class="track"></span></label>
-          <label class="swrow hide" id="slashRow"><span class="lbl">Ad / subscribe glyph</span><input type="checkbox" id="xSlash"><span class="track"></span></label>
-          <label class="swrow"><span class="lbl">Liked<small>Fills the heart</small></span><input type="checkbox" id="likeOn"><span class="track"></span></label>
+        <!-- social account -->
+        <div id="socialCard" class="hide">
+          <div class="cap" id="socialHead">Account</div>
+          <div class="row"><label for="name">Name</label><input class="txt" type="text" id="name" spellcheck="false"></div>
+          <div class="row"><label for="handle" id="handleLabel">Handle</label><input class="txt" type="text" id="handle" spellcheck="false"></div>
+          <div class="row" id="subRow"><label for="sub">Subreddit</label><input class="txt" type="text" id="sub" spellcheck="false"></div>
+          <div class="row"><label for="time">Timestamp</label><input class="txt" type="text" id="time" spellcheck="false" placeholder="2h"></div>
+          <div class="row" id="audioRow"><label for="audio">Audio</label><input class="txt" type="text" id="audio" spellcheck="false" placeholder="artist · Original audio"></div>
           <label class="drop" id="avatarDrop">
-            <span class="thumb" id="avatarThumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span>
-            <span class="lbl">Profile picture<small id="avatarName">Optional — a coloured initial is used otherwise</small></span>
+            <span class="th" id="avatarThumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span>
+            <span class="lb">Profile picture<small id="avatarName">Optional — a coloured initial is used</small></span>
             <button type="button" class="x hide" id="avatarClear" aria-label="Remove">&times;</button>
             <input type="file" id="avatarFile" accept="image/*">
           </label>
+          <div class="row" id="badgeRow"><label>Badge</label>
+            <div class="seg" id="badge"><button data-v="off">Off</button><button data-v="blue" aria-pressed="true">Blue</button><button data-v="gold">Gold</button></div>
+          </div>
+          <div class="row" id="avShapeRow"><label>Avatar</label>
+            <div class="seg" id="avShape"><button data-v="circle" aria-pressed="true">Circle</button><button data-v="square">Squared</button></div>
+          </div>
+          <div class="row rowsw" id="followRow"><span class="rl">Show “Follow”</span>
+            <label class="sw"><input type="checkbox" id="follow" checked><span class="tr"></span></label></div>
+          <div class="row rowsw" id="slashRow"><span class="rl">Ad / subscribe glyph</span>
+            <label class="sw"><input type="checkbox" id="xSlash"><span class="tr"></span></label></div>
+          <div class="row rowsw"><span class="rl">Liked<small>Fills the heart</small></span>
+            <label class="sw"><input type="checkbox" id="likeOn"><span class="tr"></span></label></div>
         </div>
 
-        <!-- engagement metrics (social) -->
-        <div class="card hide" id="metricsCard">
-          <h2>Engagement</h2>
-          <div class="grid2" id="metricGrid"></div>
-          <label class="drop hide" id="mediaDrop" style="margin-top:10px">
-            <span class="thumb" id="mediaThumb"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-4 4 3 3-2 4 3"/></svg></span>
-            <span class="lbl">Attached image<small id="mediaName">Shown inside the post</small></span>
+        <!-- engagement + media -->
+        <div id="metricsCard" class="hide">
+          <div class="cap">Engagement</div>
+          <div id="metricGrid"></div>
+          <label class="drop hide" id="mediaDrop">
+            <span class="th" id="mediaThumb"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-4 4 3 3-2 4 3"/></svg></span>
+            <span class="lb">Attached image<small id="mediaName">Shown inside the post</small></span>
             <button type="button" class="x hide" id="mediaClear" aria-label="Remove">&times;</button>
             <input type="file" id="mediaFile" accept="image/*">
           </label>
-          <div class="field compact hide" id="mediaSrcRow" style="margin-top:10px"><input type="text" id="mediaSrc" placeholder=" " spellcheck="false"><label for="mediaSrc">Link source (“From …”)</label></div>
+          <div class="row" id="mediaSrcRow"><label for="mediaSrc">Link source</label>
+            <input class="txt" type="text" id="mediaSrc" spellcheck="false" placeholder="youtube.com"></div>
         </div>
       </div>
 
-      <!-- ============ STYLE ============ -->
+      <!-- ===== STYLE ===== -->
       <div class="page" data-page="style">
-        <div class="card" id="themeCard">
-          <h2>Card</h2>
-          <span class="rowlab" id="themeLab">Theme</span>
-          <div class="segmented" id="theme"><button data-v="light">Light</button><button data-v="paper" aria-pressed="true">Paper</button><button data-v="dark">Dark</button></div>
-          <div id="faceWrap">
-            <span class="rowlab">Typeface</span>
-            <div class="segmented" id="face"><button data-v="serif">Serif</button><button data-v="sans" aria-pressed="true">Sans</button><button data-v="mono">Mono</button></div>
+        <div id="themeCard">
+          <div class="cap">Card</div>
+          <div class="row"><label id="themeLab">Theme</label>
+            <div class="seg" id="theme"><button data-v="light">Light</button><button data-v="paper" aria-pressed="true">Paper</button><button data-v="dark">Dark</button></div>
+          </div>
+          <div class="row" id="faceWrap"><label>Typeface</label>
+            <div class="seg" id="face"><button data-v="serif">Serif</button><button data-v="sans" aria-pressed="true">Sans</button><button data-v="mono">Mono</button></div>
           </div>
         </div>
 
-        <div class="card">
-          <h2>Highlight</h2>
-          <div class="swatches" id="hlColor">
+        <div class="cap">Highlight</div>
+        <div class="row"><label>Colour</label>
+          <div class="sw-grid" id="hlColor">
             <button data-v="#FFA8C5" style="background:#FFA8C5" aria-pressed="true"></button>
             <button data-v="#FFE566" style="background:#FFE566"></button>
             <button data-v="#9BF6A5" style="background:#9BF6A5"></button>
             <button data-v="#8BD3FF" style="background:#8BD3FF"></button>
             <button data-v="#FF7A45" style="background:#FF7A45"></button>
+            <span class="pick" id="pickwrap"><input type="color" id="hlPick" value="#FFA8C5" aria-label="Custom colour"></span>
           </div>
-          <div class="pickrow">
-            <span class="pickwrap" id="pickwrap"><input type="color" id="hlPick" value="#FFA8C5" aria-label="Custom highlight colour"></span>
-            <div class="field hexf"><input type="text" id="hlHex" placeholder=" " maxlength="7" spellcheck="false"><label for="hlHex">Hex</label></div>
-          </div>
-          <span class="rowlab">Style</span>
-          <div class="segmented" id="hlStyle"><button data-v="marker" aria-pressed="true">Marker</button><button data-v="underline">Underline</button></div>
+        </div>
+        <div class="row"><label for="hlHex">Hex</label><input class="txt mono" type="text" id="hlHex" maxlength="7" spellcheck="false"></div>
+        <div class="row"><label>Style</label>
+          <div class="seg" id="hlStyle"><button data-v="marker" aria-pressed="true">Marker</button><button data-v="underline">Underline</button></div>
         </div>
 
-        <div class="card">
-          <h2>Size and position</h2>
-          <span class="rowlab" id="widthLab">Card width</span>
-          <div class="slider"><input type="range" id="width" min="45" max="95" value="75"><output id="widthOut"></output></div>
-          <span class="rowlab">Text size</span>
-          <div class="slider"><input type="range" id="size" min="26" max="72" value="42"><output id="sizeOut"></output></div>
-          <span class="rowlab">Vertical position</span>
-          <div class="slider"><input type="range" id="ypos" min="-30" max="30" value="0"><output id="yposOut"></output></div>
-          <p class="support">Text size is a target. If the card would run off frame it shrinks to fit.</p>
-        </div>
+        <div class="cap">Layout</div>
+        <div class="row sl"><label for="width" id="widthLab">Card width</label>
+          <input type="range" id="width" min="45" max="95" value="75"><input class="num" id="widthNum" inputmode="numeric"><span class="unit">%</span></div>
+        <div class="row sl"><label for="size">Text size</label>
+          <input type="range" id="size" min="26" max="72" value="42"><input class="num" id="sizeNum" inputmode="numeric"><span class="unit">px</span></div>
+        <div class="row sl"><label for="ypos">Vertical</label>
+          <input type="range" id="ypos" min="-30" max="30" value="0"><input class="num" id="yposNum" inputmode="numeric"><span class="unit">%</span></div>
+        <p class="note">Text size is a target — the card shrinks to fit the frame. Double-click a slider to reset.</p>
 
-        <div class="card" id="extrasCard">
-          <h2>Extras</h2>
-          <label class="swrow" id="headerRow"><span class="lbl">Outlet header bar</span><input type="checkbox" id="header" checked><span class="track"></span></label>
-          <label class="swrow" id="marksRow"><span class="lbl">Quotation marks</span><input type="checkbox" id="marks"><span class="track"></span></label>
-          <label class="swrow"><span class="lbl">Shorts UI zones<small>Preview only, never exported</small></span><input type="checkbox" id="guides" checked><span class="track"></span></label>
+        <div id="extrasCard">
+          <div class="cap">Extras</div>
+          <div class="row rowsw" id="headerRow"><span class="rl">Outlet header bar</span>
+            <label class="sw"><input type="checkbox" id="header" checked><span class="tr"></span></label></div>
+          <div class="row rowsw" id="marksRow"><span class="rl">Quotation marks</span>
+            <label class="sw"><input type="checkbox" id="marks"><span class="tr"></span></label></div>
+          <div class="row rowsw"><span class="rl">Shorts UI zones<small>Preview only, never exported</small></span>
+            <label class="sw"><input type="checkbox" id="guides" checked><span class="tr"></span></label></div>
         </div>
       </div>
 
-      <!-- ============ MOTION ============ -->
+      <!-- ===== MOTION ===== -->
       <div class="page" data-page="motion">
-        <div class="card">
-          <label class="swrow" style="padding-top:0"><span class="lbl">Animate the card in</span><input type="checkbox" id="anim" checked><span class="track"></span></label>
-          <div class="curvewrap"><canvas id="curve" width="700" height="300"></canvas></div>
-          <p class="support" id="curveInfo">—</p>
+        <div class="cap">Card animation</div>
+        <div class="row rowsw"><span class="rl">Animate in</span>
+          <label class="sw"><input type="checkbox" id="anim" checked><span class="tr"></span></label></div>
+        <div class="gwrap"><canvas id="curve" width="700" height="300"></canvas></div>
+        <p class="note" id="curveInfo">—</p>
+
+        <div class="cap">Timing</div>
+        <div class="row sl"><label for="dur">Duration</label>
+          <input type="range" id="dur" min="8" max="60" value="15"><input class="num" id="durNum" inputmode="numeric"><span class="unit">f</span></div>
+        <div class="row sl"><label for="hold">Hold after</label>
+          <input type="range" id="hold" min="0" max="60" value="6"><input class="num" id="holdNum" inputmode="numeric"><span class="unit">f</span></div>
+
+        <div class="cap">Curves</div>
+        <div class="row"><label>Fade</label>
+          <div class="seg" id="fadeEase"><button data-v="inout" aria-pressed="true">In-out</button><button data-v="out">Out</button><button data-v="none">None</button></div>
         </div>
-        <div class="card">
-          <h2>Timing</h2>
-          <span class="rowlab">Duration</span>
-          <div class="slider"><input type="range" id="dur" min="8" max="60" value="15"><output id="durOut"></output></div>
-          <span class="rowlab">Hold frames after</span>
-          <div class="slider"><input type="range" id="hold" min="0" max="60" value="6"><output id="holdOut"></output></div>
+        <div class="row"><label for="scaleEase">Scale</label>
+          <select class="sel" id="scaleEase">
+            <option value="back">Overshoot</option>
+            <option value="spring">Spring</option>
+            <option value="smooth">Smooth</option>
+            <option value="custom">Custom bezier</option>
+            <option value="none">Off</option>
+          </select>
         </div>
-        <div class="card">
-          <h2>Curves</h2>
-          <span class="rowlab">Fade</span>
-          <div class="segmented" id="fadeEase"><button data-v="inout" aria-pressed="true">In-out</button><button data-v="out">Out</button><button data-v="none">None</button></div>
-          <span class="rowlab">Scale</span>
-          <div class="segmented" id="scaleEase"><button data-v="back" aria-pressed="true">Over</button><button data-v="spring">Spring</button><button data-v="smooth">Smooth</button><button data-v="custom">Custom</button><button data-v="none">None</button></div>
-          <div id="customRow" class="hide">
-            <span class="rowlab">Bezier presets <small style="color:var(--on-surface-var)">— drag the dots on the graph</small></span>
-            <div class="presetrow">
-              <select id="bezPreset" aria-label="Bezier preset"></select>
-              <button class="btn tonal" id="bezSave"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM8 3v6h7"/></svg>Save</button>
+        <div id="customRow" class="hide">
+          <div class="row"><label for="bezPreset">Preset</label>
+            <div style="display:flex;gap:6px">
+              <select class="sel" id="bezPreset" aria-label="Bezier preset" style="flex:1"></select>
+              <button class="btn" id="bezSave">Save</button>
             </div>
           </div>
-          <span class="rowlab">Scale from</span>
-          <div class="slider"><input type="range" id="sFrom" min="40" max="100" value="88"><output id="sFromOut"></output></div>
-          <span class="rowlab" id="overLab">Overshoot amount</span>
-          <div class="slider"><input type="range" id="over" min="0" max="40" value="17"><output id="overOut"></output></div>
-          <span class="rowlab">Rise from below</span>
-          <div class="slider"><input type="range" id="drift" min="0" max="160" value="0"><output id="driftOut"></output></div>
+          <p class="note">Drag the two dots on the graph to shape the curve.</p>
         </div>
-        <div class="card">
-          <h2>Highlight animation</h2>
-          <label class="swrow" style="padding-top:0"><span class="lbl">Slide the highlight in<small>Wipes the marker across the words</small></span><input type="checkbox" id="hlAnim"><span class="track"></span></label>
-          <div id="hlAnimRow" class="hide">
-            <span class="rowlab">Offset from card start</span>
-            <div class="slider"><input type="range" id="hlOffset" min="0" max="45" value="9"><output id="hlOffsetOut"></output></div>
-            <span class="rowlab">Slide duration</span>
-            <div class="slider"><input type="range" id="hlDur" min="4" max="30" value="12"><output id="hlDurOut"></output></div>
-          </div>
+        <div class="row sl"><label for="sFrom">Scale from</label>
+          <input type="range" id="sFrom" min="40" max="100" value="88"><input class="num" id="sFromNum" inputmode="numeric"><span class="unit">%</span></div>
+        <div class="row sl"><label for="over" id="overLab">Overshoot</label>
+          <input type="range" id="over" min="0" max="40" value="17"><input class="num" id="overNum" inputmode="numeric"><span class="unit"></span></div>
+        <div class="row sl"><label for="drift">Rise</label>
+          <input type="range" id="drift" min="0" max="160" value="0"><input class="num" id="driftNum" inputmode="numeric"><span class="unit">px</span></div>
+
+        <div class="cap">Highlight animation</div>
+        <div class="row rowsw"><span class="rl">Slide in<small>Wipes the marker across</small></span>
+          <label class="sw"><input type="checkbox" id="hlAnim"><span class="tr"></span></label></div>
+        <div id="hlAnimRow" class="hide">
+          <div class="row sl"><label for="hlOffset">Offset</label>
+            <input type="range" id="hlOffset" min="0" max="45" value="9"><input class="num" id="hlOffsetNum" inputmode="numeric"><span class="unit">f</span></div>
+          <div class="row sl"><label for="hlDur">Slide time</label>
+            <input type="range" id="hlDur" min="4" max="30" value="12"><input class="num" id="hlDurNum" inputmode="numeric"><span class="unit">f</span></div>
         </div>
       </div>
 
-      <!-- ============ EXPORT ============ -->
+      <!-- ===== EXPORT ===== -->
       <div class="page" data-page="export">
-        <div class="card">
-          <h2>What to export</h2>
-          <div class="segmented" id="format">
-            <button data-v="still" aria-pressed="true">Still</button>
-            <button data-v="seq">Sequence</button>
-            <button data-v="webm">WebM</button>
-            <button data-v="gif">GIF</button>
+        <div class="cap">Output</div>
+        <div class="row"><label>Type</label>
+          <div class="seg" id="format"><button data-v="still" aria-pressed="true">Still</button><button data-v="seq">Frames</button><button data-v="webm">WebM</button><button data-v="gif">GIF</button></div>
+        </div>
+        <p class="note" id="fmtNote">A single settled frame.</p>
+        <div id="stillFmtCard">
+          <div class="row"><label>Encoding</label>
+            <div class="seg" id="imgFmt"><button data-v="png" aria-pressed="true">PNG</button><button data-v="jpeg">JPEG</button></div>
           </div>
-          <p class="support" id="fmtNote">A single settled frame.</p>
+          <div class="row sl hide" id="jpegQ"><label for="jq">Quality</label>
+            <input type="range" id="jq" min="60" max="100" value="92"><input class="num" id="jqNum" inputmode="numeric"><span class="unit">%</span></div>
         </div>
-        <div class="card" id="stillFmtCard">
-          <h2>Still format</h2>
-          <div class="segmented" id="imgFmt"><button data-v="png" aria-pressed="true">PNG</button><button data-v="jpeg">JPEG</button></div>
-          <div id="jpegQ" class="hide">
-            <span class="rowlab">JPEG quality</span>
-            <div class="slider"><input type="range" id="jq" min="60" max="100" value="92"><output id="jqOut"></output></div>
-          </div>
+        <div class="row"><label>Framing</label>
+          <div class="seg" id="crop"><button data-v="frame" aria-pressed="true">Full frame</button><button data-v="card">Card only</button></div>
         </div>
-        <div class="card">
-          <h2>Output</h2>
-          <span class="rowlab">Framing</span>
-          <div class="segmented" id="crop"><button data-v="frame" aria-pressed="true">Full frame</button><button data-v="card">Card only</button></div>
-          <span class="rowlab">Resolution</span>
-          <div class="segmented" id="res"><button data-v="1" aria-pressed="true">1080p</button><button data-v="2">4K</button></div>
-          <span class="rowlab">Background</span>
-          <div class="segmented" id="bg"><button data-v="transparent" aria-pressed="true">None</button><button data-v="#FFFFFF">White</button><button data-v="#000000">Black</button></div>
-          <span class="rowlab">Frame rate</span>
-          <div class="segmented" id="fps"><button data-v="24">24</button><button data-v="25">25</button><button data-v="30" aria-pressed="true">30</button><button data-v="60">60</button></div>
+        <div class="row"><label>Resolution</label>
+          <div class="seg" id="res"><button data-v="1" aria-pressed="true">1080p</button><button data-v="2">4K</button></div>
         </div>
-        <div class="card">
-          <h2>File name</h2>
-          <div class="field compact"><input type="text" id="exportName" placeholder=" " spellcheck="false" autocomplete="off"><label for="exportName">Name (optional)</label></div>
-          <p class="support">Left blank, a name is built from the first words. Sequences append <b>_0000</b>.</p>
+        <div class="row"><label>Background</label>
+          <div class="seg" id="bg"><button data-v="transparent" aria-pressed="true">Alpha</button><button data-v="#FFFFFF">White</button><button data-v="#000000">Black</button></div>
         </div>
-        <div class="card">
-          <h2>Into Premiere</h2>
-          <p class="support"><b>Sequence</b> (PNG) keeps alpha and is lossless — the one to use for delivery. Unzip, File → Import, select frame 0000, tick <b>Image Sequence</b>.</p>
-          <p class="support"><b>GIF</b> keeps 1-bit transparency and loops — handy for quick overlays. <b>WebM</b> has no alpha. Both are previews, not delivery.</p>
+        <div class="row"><label>Frame rate</label>
+          <div class="seg" id="fps"><button data-v="24">24</button><button data-v="25">25</button><button data-v="30" aria-pressed="true">30</button><button data-v="60">60</button></div>
         </div>
+        <div class="cap">File</div>
+        <div class="row"><label for="exportName">Name</label>
+          <input class="txt" type="text" id="exportName" spellcheck="false" autocomplete="off" placeholder="auto from text"></div>
+        <p class="note">Frames append <b>_0000</b>. <b>Frames</b> (PNG) is lossless with alpha — use it for Premiere. GIF and WebM are previews.</p>
       </div>
 
     </div>
 
-    <div class="actions">
-      <button class="fab" id="dl" style="width:100%"><svg viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4M4 19h16"/></svg><span id="fabLabel">Download PNG</span></button>
+    <div class="insp-foot">
+      <button id="dl"><svg viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4M4 19h16"/></svg><span id="fabLabel">Download PNG</span></button>
     </div>
   </section>
 
-  <main class="stage">
-    <div class="viewer"><canvas id="preview"></canvas></div>
-    <div class="tools">
-      <button class="chip" id="view" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Fit card</span></button>
-      <button class="chip" id="play"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg><span>Play</span></button>
-    </div>
-    <div class="readout"><div>Out <b id="rOut">—</b></div><div>Size <b id="rFit">—</b></div></div>
-  </main>
+  <nav class="mbar" role="tablist">
+    <button class="mt" data-p="content" role="tab" aria-selected="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h9"/></svg>Content</button>
+    <button class="mt" data-p="style" role="tab" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 7h8M17 7h3M4 17h3M12 17h8"/><circle cx="14.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/></svg>Style</button>
+    <button class="mt" data-p="motion" role="tab" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M3 17c3.5 0 4.5-11 8-11s4.5 6 8 6"/></svg>Motion</button>
+    <button class="mt" data-p="export" role="tab" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4M4 19h16"/></svg>Export</button>
+    <button class="go" id="dlMobile" aria-label="Download"><svg viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4M4 19h16"/></svg></button>
+  </nav>
 </div>
 <div class="snack" id="snack"></div>
-
 <script>
 (function(){
 "use strict";
@@ -1129,16 +1150,20 @@ function paintX(c,L,hp){
   const items=[["xReply",gc("replies")],["xRetweet",gc("retweets")],
                [S.likeOn?"xHeartOn":"xHeart",gc("likes"),S.likeOn?pal.like:null],["xViews",gc("views")]];
   const usable=L.cardW-L.bodyX-pad;
-  let iS,cfs,gaps,widths;
+  let iS,cfs,gaps,widths,tail=true;
   for(let k=0;k<8;k++){                          /* shrink until the row fits */
     iS=Math.round(fs*(1.0-k*0.06));cfs=Math.round(fs*(0.78-k*0.045));
     c.font=cfs+"px "+SANS;
     widths=items.map(it=>iS+(it[1]?fs*0.2+c.measureText(it[1]).width:0));
-    const tail=iS*2+fs*1.15;
-    gaps=(usable-widths.reduce((a,b)=>a+b,0)-tail)/4;
+    gaps=(usable-widths.reduce((a,b)=>a+b,0)-(iS*2+fs*1.15))/4;
     if(gaps>=fs*0.3)break;
   }
-  gaps=Math.max(gaps,fs*0.12);
+  if(gaps<fs*0.12){
+    /* still cramped: drop bookmark + share rather than overlap the counts */
+    tail=false;
+    gaps=(usable-widths.reduce((a,b)=>a+b,0))/3.2;
+    gaps=Math.max(gaps,fs*0.1);
+  }
   c.font=cfs+"px "+SANS;
   let ix=X+L.bodyX;
   items.forEach((it,i)=>{
@@ -1148,9 +1173,11 @@ function paintX(c,L,hp){
       c.fillText(it[1],ix+iS+fs*0.2,fy+fs*0.02);c.textBaseline="alphabetic";}
     ix+=widths[i]+gaps;
   });
-  const shareX=X+L.cardW-pad-iS;
-  drawIcon(c,"xBookmark",shareX-iS-fs*1.15,fy-iS/2,iS,pal.sub);
-  drawIcon(c,"xShare",shareX,fy-iS/2,iS,pal.sub);
+  if(tail){
+    const shareX=X+L.cardW-pad-iS;
+    drawIcon(c,"xBookmark",shareX-iS-fs*1.15,fy-iS/2,iS,pal.sub);
+    drawIcon(c,"xShare",shareX,fy-iS/2,iS,pal.sub);
+  }
 }
 
 /* ---- Facebook post ---- */
@@ -1492,15 +1519,19 @@ function refreshBezSelect(){
 let bezDrag=null;
 function drawCurve(){
   const el=$("#curve");if(!el.offsetParent)return;
-  const c=el.getContext("2d"),W=700,H=300;
-  el.width=W;el.height=H;
-  c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,W,H);
-  const pl=44,pr=22,pt=30,gh=H-70,gw=W-pl-pr;
+  /* draw in CSS pixels at device resolution so the labels stay legible */
+  const W=el.clientWidth||340,H=el.clientHeight||132;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const pw=Math.round(W*dpr),ph=Math.round(H*dpr);
+  if(el.width!==pw||el.height!==ph){el.width=pw;el.height=ph;}
+  const c=el.getContext("2d");
+  c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
+  const pl=32,pr=10,pt=12,gh=H-26,gw=W-pl-pr;
   const custom=S.anim&&S.scaleEase==="custom";
-  c.strokeStyle="#3A3B44";c.lineWidth=1;
-  for(let i=0;i<=4;i++){const yy=pt+gh*i/4;c.beginPath();c.moveTo(pl,yy);c.lineTo(W-pr,yy);c.stroke();}
-  c.fillStyle="#C6C5D0";c.font="12px "+SANS;
-  c.fillText("100%",4,pt+4);c.fillText("0",4,pt+gh+4);
+  c.strokeStyle="#262A33";c.lineWidth=1;
+  for(let i=0;i<=4;i++){const yy=pt+gh*i/4;c.beginPath();c.moveTo(pl,yy+.5);c.lineTo(W-pr,yy+.5);c.stroke();}
+  c.fillStyle="#6B7183";c.font="9px "+SANS;
+  c.fillText("100%",2,pt+3);c.fillText("0",2,pt+gh+3);
   /* scale curve auto-range */
   let peak=1,peakT=0;
   const sfn=t=>{const v=scaleFn(t);if(v>peak){peak=v;peakT=t;}return v;};
@@ -1508,21 +1539,22 @@ function drawCurve(){
   const lo=Math.min(0.6,S.sFrom/100-0.02),hi=Math.max(1.02,peak+0.03),span=hi-lo;
   const Y=v=>pt+gh-gh*((v-lo)/span);
   const y100=Y(1);
-  c.strokeStyle="#5A5B66";c.setLineDash([5,5]);c.beginPath();c.moveTo(pl,y100);c.lineTo(W-pr,y100);c.stroke();c.setLineDash([]);
+  c.strokeStyle="#3A4050";c.setLineDash([4,4]);c.beginPath();c.moveTo(pl,y100);c.lineTo(W-pr,y100);c.stroke();c.setLineDash([]);
   const plot=(fn,col,wd)=>{c.strokeStyle=col;c.lineWidth=wd;c.lineJoin="round";c.beginPath();
-    for(let i=0;i<=240;i++){const t=i/240,x=pl+gw*t,y=Y(fn(t));i?c.lineTo(x,y):c.moveTo(x,y);}c.stroke();};
-  plot(t=>0.6+0.4*(S.anim&&S.fadeEase!=="none"?EASE[S.fadeEase](t):1),"#C4C5DD",2.5);
-  plot(sfn,"#BFC2FF",3.5);
+    for(let i=0;i<=180;i++){const t=i/180,x=pl+gw*t,y=Y(fn(t));i?c.lineTo(x,y):c.moveTo(x,y);}c.stroke();};
+  plot(t=>0.6+0.4*(S.anim&&S.fadeEase!=="none"?EASE[S.fadeEase](t):1),"#5A6480",1.5);
+  plot(sfn,"#7D93FF",2);
   if(custom){
-    /* draw editable handles on a normalized 0..1 y box (top=1 overshoot allowed) */
+    /* editable handles on a -0.4..1.9 vertical box — wide enough for every preset's overshoot */
     const b=S.bezier;
-    const HX=t=>pl+gw*t, HY=v=>pt+gh-gh*((v- -0.3)/(1.6));
+    const HX=t=>pl+gw*t, HY=v=>pt+gh-gh*((v+0.4)/2.3);
     const p0=[HX(0),HY(0)],p3=[HX(1),HY(1)],p1=[HX(b[0]),HY(b[1])],p2=[HX(b[2]),HY(b[3])];
-    c.strokeStyle="#8A8DF0";c.lineWidth=1.5;
+    c.strokeStyle="#4B5470";c.lineWidth=1;
     c.beginPath();c.moveTo(p0[0],p0[1]);c.lineTo(p1[0],p1[1]);c.stroke();
     c.beginPath();c.moveTo(p3[0],p3[1]);c.lineTo(p2[0],p2[1]);c.stroke();
-    [[p1,"#BFC2FF"],[p2,"#FFA8C5"]].forEach(([p,col])=>{c.fillStyle=col;c.beginPath();c.arc(p[0],p[1],8,0,7);c.fill();
-      c.strokeStyle="#15161B";c.lineWidth=2;c.stroke();});
+    [[p1,"#7D93FF"],[p2,"#FFA8C5"]].forEach(([p,col])=>{
+      c.fillStyle=col;c.beginPath();c.arc(p[0],p[1],5,0,7);c.fill();
+      c.strokeStyle="#0B0C0F";c.lineWidth=1.5;c.stroke();});
     el._map={HX,HY,pl,pr,pt,gh,gw};
   }
   const fps=+S.fps,af=Math.max(1,Math.round(animEndSec()*fps));
@@ -1536,20 +1568,20 @@ function drawCurve(){
   const toState=(e)=>{
     if(!(S.anim&&S.scaleEase==="custom")||!el._map)return null;
     const r=el.getBoundingClientRect(),m=el._map;
-    const px=(e.clientX-r.left)*(700/r.width),py=(e.clientY-r.top)*(300/r.height);
-    return {px,py,m};
+    /* the graph is drawn in CSS pixels, so pointer coords map 1:1 */
+    return {px:e.clientX-r.left,py:e.clientY-r.top,m};
   };
   el.addEventListener("pointerdown",e=>{
     const s=toState(e);if(!s)return;const {px,py,m}=s,b=S.bezier;
     const p1=[m.HX(b[0]),m.HY(b[1])],p2=[m.HX(b[2]),m.HY(b[3])];
     const d1=Math.hypot(px-p1[0],py-p1[1]),d2=Math.hypot(px-p2[0],py-p2[1]);
-    if(Math.min(d1,d2)>26)return;
+    if(Math.min(d1,d2)>16)return;
     bezDrag=d1<d2?1:2;el.setPointerCapture(e.pointerId);e.preventDefault();
   });
   el.addEventListener("pointermove",e=>{
     if(!bezDrag)return;const s=toState(e);if(!s)return;const {px,py,m}=s;
     const t=clamp((px-m.pl)/m.gw,0,1);
-    const v=clamp(-0.3+(1.6)*(1-(py-m.pt)/m.gh),-0.3,1.3);
+    const v=clamp(-0.4+2.3*(1-(py-m.pt)/m.gh),-0.4,1.9);
     if(bezDrag===1){S.bezier[0]=t;S.bezier[1]=v;}else{S.bezier[2]=t;S.bezier[3]=v;}
     drawCurve();scheduleDraw();
   });
@@ -1907,7 +1939,7 @@ urlEl.addEventListener("input",e=>{S.url=e.target.value;urlAuto=false;markFilled
 /* ---------- text fields ---------- */
 const ta=$("#text");ta.value=S.text;
 function markFilled(el){el.classList.toggle("filled",!!el.value);}
-function autogrow(el){el.style.height="auto";el.style.height=Math.min(el.scrollHeight,230)+"px";}
+function autogrow(el){el.style.height="auto";el.style.height=Math.min(el.scrollHeight,210)+"px";}
 let lastSel=[0,0];
 const capSel=()=>{if(document.activeElement===ta)lastSel=[ta.selectionStart,ta.selectionEnd];};
 ["keyup","mouseup","touchend","select"].forEach(ev=>ta.addEventListener(ev,capSel));
@@ -1952,13 +1984,13 @@ function buildMetrics(){
   const brand=d().brand;if(!brand)return;
   const grid=$("#metricGrid");grid.innerHTML="";
   (METRICS[brand]||[]).forEach(([key,label,ph])=>{
-    const wrap=document.createElement("div");wrap.className="field compact";
-    const inp=document.createElement("input");inp.type="text";inp.placeholder=" ";inp.spellcheck=false;
+    const row=document.createElement("div");row.className="row";
+    const inp=document.createElement("input");
+    inp.type="text";inp.className="txt";inp.spellcheck=false;inp.placeholder=ph||"";
     inp.id="metric_"+key;inp.value=S[key]||"";
     const lb=document.createElement("label");lb.setAttribute("for",inp.id);lb.textContent=label;
-    if(inp.value)inp.classList.add("filled");
-    inp.addEventListener("input",e=>{S[key]=e.target.value;markFilled(inp);invalidateLayout();scheduleDraw();});
-    wrap.append(inp,lb);grid.appendChild(wrap);
+    inp.addEventListener("input",e=>{S[key]=e.target.value;invalidateLayout();scheduleDraw();});
+    row.append(lb,inp);grid.appendChild(row);
   });
 }
 
@@ -1986,7 +2018,9 @@ function setHl(col,fromPreset){
   hexEl.value=col.toUpperCase();markFilled(hexEl);
   pickEl.value=col;
   $("#pickwrap").dataset.active=!fromPreset;
-  [...$("#hlColor").children].forEach(b=>b.setAttribute("aria-pressed",String(fromPreset&&b.dataset.v.toLowerCase()===col.toLowerCase())));
+  /* the custom picker sits in the same row and carries no data-v */
+  $("#hlColor").querySelectorAll("button[data-v]").forEach(b=>
+    b.setAttribute("aria-pressed",String(!!fromPreset&&b.dataset.v.toLowerCase()===col.toLowerCase())));
   scheduleDraw();
 }
 pickEl.addEventListener("input",e=>setHl(e.target.value,false));
@@ -1996,19 +2030,38 @@ hexEl.addEventListener("input",e=>{
 });
 
 /* ---------- sliders (fill tracks handle) ---------- */
-const SL=[["width",v=>v+"%"],["size",v=>v],["ypos",v=>v],["sFrom",v=>v+"%"],
-  ["over",v=>(v/10).toFixed(1)],["drift",v=>v+"px"],["hold",v=>v+"f"],["dur",v=>(v/30).toFixed(2)+"s"],
-  ["hlOffset",v=>v+"f"],["hlDur",v=>v+"f"],["jq",v=>v+"%"]];
+/* ---------- sliders: drag, type an exact value, or double-click to reset ---------- */
+const SL=["width","size","ypos","sFrom","over","drift","hold","dur","hlOffset","hlDur","jq"];
 const LAYOUT_SLIDERS={width:1,size:1,ypos:1};
+const SL_DEFAULT={};
 function fillSlider(el){
   const mn=+el.min,mx=+el.max,frac=(el.value-mn)/(mx-mn||1);
-  el.parentElement.style.setProperty("--fill","calc("+frac+" * (100% - var(--thumb)) + var(--thumb)/2)");
+  /* the 13px thumb is inset by half its width at each end */
+  el.style.setProperty("--fill","calc("+frac+" * (100% - 13px) + 6.5px)");
 }
-SL.forEach(([id,fmt])=>{
-  const el=$("#"+id);if(!el)return;
-  el.addEventListener("input",e=>{S[id]=+e.target.value;$("#"+id+"Out").textContent=fmt(+e.target.value);fillSlider(el);
-    if(LAYOUT_SLIDERS[id])invalidateLayout();scheduleDraw();});
-  $("#"+id+"Out").textContent=fmt(S[id]);fillSlider(el);
+function applySlider(id,v,fromBox){
+  const el=$("#"+id),box=$("#"+id+"Num");
+  v=clamp(Math.round(v),+el.min,+el.max);
+  S[id]=v;el.value=v;
+  if(!fromBox||document.activeElement!==box)box.value=v;
+  fillSlider(el);
+  if(LAYOUT_SLIDERS[id])invalidateLayout();
+  scheduleDraw();
+}
+SL.forEach(id=>{
+  const el=$("#"+id),box=$("#"+id+"Num");if(!el||!box)return;
+  SL_DEFAULT[id]=S[id];
+  el.addEventListener("input",()=>applySlider(id,+el.value,false));
+  el.addEventListener("dblclick",()=>applySlider(id,SL_DEFAULT[id],false));
+  box.addEventListener("input",()=>{const v=parseFloat(box.value);if(!isNaN(v))applySlider(id,v,true);});
+  box.addEventListener("blur",()=>{box.value=S[id];});
+  box.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){box.blur();return;}
+    const step=e.shiftKey?10:1;
+    if(e.key==="ArrowUp"){e.preventDefault();applySlider(id,S[id]+step,true);box.value=S[id];}
+    if(e.key==="ArrowDown"){e.preventDefault();applySlider(id,S[id]-step,true);box.value=S[id];}
+  });
+  box.value=S[id];fillSlider(el);
 });
 
 /* ---------- toggles ---------- */
@@ -2027,13 +2080,19 @@ function updateFabLabel(){
   $("#stillFmtCard").classList.toggle("hide",S.format!=="still");
 }
 ["theme","face","hlStyle","crop","res","bg","fps","fadeEase","scaleEase","format","mode","imgFmt","badge","avShape"].forEach(g=>{
-  $("#"+g).addEventListener("click",e=>{
-    const b=e.target.closest("button");if(!b)return;
-    [...e.currentTarget.querySelectorAll("button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
-    S[g]=b.dataset.v;
+  const host=$("#"+g);
+  /* groups with many options are <select>; the rest are segmented buttons */
+  const isSel=host.tagName==="SELECT";
+  host.addEventListener(isSel?"change":"click",e=>{
+    if(isSel)S[g]=host.value;
+    else{
+      const b=e.target.closest("button");if(!b)return;
+      [...host.querySelectorAll("button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+      S[g]=b.dataset.v;
+    }
     if(g==="format"){updateFabLabel();}
     if(g==="imgFmt"){$("#jpegQ").classList.toggle("hide",S.imgFmt!=="jpeg");updateFabLabel();}
-    if(g==="scaleEase"){$("#customRow").classList.toggle("hide",S.scaleEase!=="custom");$("#overLab").textContent=(S.scaleEase==="spring")?"Bounciness":"Overshoot amount";drawCurve();}
+    if(g==="scaleEase"){$("#customRow").classList.toggle("hide",S.scaleEase!=="custom");$("#overLab").textContent=(S.scaleEase==="spring")?"Bounciness":"Overshoot";drawCurve();}
     if(g==="fadeEase")drawCurve();
     if(g==="mode"){
       $("#typeBox").style.display=S.mode==="type"?"":"none";
@@ -2045,7 +2104,7 @@ function updateFabLabel(){
   });
 });
 $("#hlColor").addEventListener("click",e=>{
-  const b=e.target.closest("button");if(!b)return;
+  const b=e.target.closest("button[data-v]");if(!b)return;
   setHl(b.dataset.v,true);
 });
 $("#exportName").addEventListener("input",e=>{S.exportName=e.target.value;markFilled(e.target);});
@@ -2061,12 +2120,27 @@ $("#bezSave").addEventListener("click",()=>{
   snack("Saved curve “"+name+"”");
 });
 
-/* ---------- tabs ---------- */
-document.querySelector(".tabs").addEventListener("click",e=>{
-  const b=e.target.closest("button");if(!b)return;
-  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
-  document.querySelectorAll(".page").forEach(p=>p.dataset.on=(p.dataset.page===b.dataset.p));
+/* ---------- tabs (desktop rail + mobile thumb bar stay in sync) ---------- */
+function goTab(name){
+  document.querySelectorAll(".tabs button,.mbar .mt").forEach(x=>
+    x.setAttribute("aria-selected",String(x.dataset.p===name)));
+  document.querySelectorAll(".page").forEach(p=>p.dataset.on=(p.dataset.page===name));
+  $(".pages").scrollTop=0;
   scheduleDraw();
+}
+[".tabs",".mbar"].forEach(sel=>{
+  document.querySelector(sel).addEventListener("click",e=>{
+    const b=e.target.closest("button[data-p]");if(!b)return;goTab(b.dataset.p);
+  });
+});
+$("#dlMobile").addEventListener("click",()=>$("#dl").click());
+/* jump straight to a tab with 1-4 when not typing */
+document.addEventListener("keydown",e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const t=e.target.tagName;
+  if(t==="INPUT"||t==="TEXTAREA"||t==="SELECT")return;
+  const map={"1":"content","2":"style","3":"motion","4":"export"};
+  if(map[e.key]){e.preventDefault();goTab(map[e.key]);}
 });
 
 /* ---------- design switch ---------- */
@@ -2139,7 +2213,7 @@ $("#play").addEventListener("click",()=>{
 
 /* ---------- init ---------- */
 setHl(S.hlColor,true);markFilled(ta);autogrow(ta);
-$("#overLab").textContent="Overshoot amount";
+$("#overLab").textContent="Overshoot";
 updateFabLabel();
 syncVH();draw();setTimeout(draw,150);
 })();
