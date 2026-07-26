@@ -74,6 +74,14 @@ is exactly the visible area and no gap can open below the nav bar. The body also
 takes the nav bar colour, so a browser that ignores the flag shows a blending
 strip rather than a black band.
 
+**Design list placement.** The combobox popup is `position:fixed` and placed by
+`placeDesignPop()` against the live viewport, using the top of the mobile nav bar
+as its floor. It flips upward when there is more room there and caps its height
+so it always scrolls internally. Absolute positioning let it clip outside the
+editor with no way to reach it. Nothing in the popup's ancestor chain may set
+`opacity` below 1 — that both tints the popup and traps its `z-index` in a new
+stacking context, which is why the parked state dims only `.pages`.
+
 **Images.** `drawFitted()` covers the box first, then applies zoom and pan. Zoom
 starts at 100% = exact cover, so the pan clamps to the resulting slack and an
 empty edge is impossible. Avatars previously stretched non-square images because

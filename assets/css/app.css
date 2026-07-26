@@ -225,9 +225,13 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .combo-chev{width:13px;height:13px;flex:none;fill:none;stroke:var(--fg-3);stroke-width:2.4;
   stroke-linecap:round;stroke-linejoin:round;transition:transform .13s}
 .combo-btn[aria-expanded=true] .combo-chev{transform:rotate(180deg)}
-.combo-pop{position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:40;display:none;
+/* Fixed to the viewport, not the editor: placed by JS so it always fits between
+   the button and the nav bar, flipping upward when there is more room there.
+   Absolute positioning let it clip outside the editor with no way to reach it. */
+.combo-pop{position:fixed;z-index:60;display:none;
   background:var(--sub-panel);border:1px solid var(--line-2);border-radius:var(--r-lg);
-  padding:5px;box-shadow:0 14px 38px rgba(0,0,0,.7);max-height:min(66vh,420px);overflow-y:auto}
+  padding:5px;box-shadow:0 18px 44px rgba(0,0,0,.75);overflow-y:auto;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .combo-pop[data-open=true]{display:block}
 .combo-grp{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
   color:var(--fg-3);padding:8px 8px 4px}
@@ -308,10 +312,11 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
     transition:background .12s,width .12s}
   .grip:active{cursor:grabbing}
   .grip:active span,.app[data-drag=true] .grip span{background:var(--acc);width:56px}
-  /* parked at the bottom: dimmed, but never pointer-events:none — that could
-     strand the editor if the state ever changed without a drag */
-  .app[data-sheet=peek] .pages,
-  .app[data-sheet=peek] .insp-top{opacity:.4}
+  /* Parked at the bottom: dim the scrolling controls only. Never
+     pointer-events:none (that could strand the editor), and never dim
+     .insp-top — an opacity ancestor would make the design list translucent and
+     trap its z-index in a new stacking context. */
+  .app[data-sheet=peek] .pages{opacity:.4}
   .insp{flex:1;min-height:0;border-left:0;border-top:0;background:var(--panel)}
   .insp-top{padding:8px 11px}
   .insp-top .mark{display:none}
@@ -402,7 +407,9 @@ input[type=range]::-webkit-slider-thumb{transition:transform .12s var(--e-out),b
 input[type=range]:active::-webkit-slider-thumb{transform:scale(1.25)}
 
 /* combobox popup */
-.combo-pop{transform-origin:top right;animation:popIn .16s var(--e-out)}
+.combo-pop{transform-origin:top center;animation:popIn .16s var(--e-out)}
+.combo-pop[data-dir=up]{transform-origin:bottom center;animation:popInUp .16s var(--e-out)}
+@keyframes popInUp{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:none}}
 @keyframes popIn{from{opacity:0;transform:scale(.96) translateY(-6px)}to{opacity:1;transform:none}}
 .combo-opt{transition:background var(--t) ease,color var(--t) ease}
 
