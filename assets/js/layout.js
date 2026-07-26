@@ -1,4 +1,8 @@
 /* layout.js — Layout dispatch with caching, easing curves and whole-frame paint. */
+import {FH, FW, S, SANS, clamp, ctx, d} from './data.js';
+import {layoutQuote, paintQuote} from './card-quote.js';
+import {layoutSocial, paintSocial} from './card-social.js';
+
 /* ---------- layout dispatch + fitting ---------- */
 let layoutCache=null,layoutSig="";
 function sigOf(){
@@ -8,7 +12,7 @@ function sigOf(){
     S.avShape,S.likeOn,S.audio,S.mediaSrc].join("|");
 }
 function computeLayout(c,fs){ return d().social?layoutSocial(c,fs):layoutQuote(c,fs); }
-function fitLayout(c){
+export function fitLayout(c){
   const maxH=FH*0.92;let fs=S.size,L=computeLayout(c,fs),n=0;
   while(L.cardH>maxH&&fs>14&&n++<80){fs-=1;L=computeLayout(c,fs);}
   L.fitted=fs<S.size;L.overflow=L.cardH>maxH;
@@ -17,15 +21,15 @@ function fitLayout(c){
   L.x=Math.round((FW-L.cardW)/2);L.y=Math.round(y);
   return L;
 }
-function fitLayoutCached(){
+export function fitLayoutCached(){
   const s=sigOf();
   if(s===layoutSig&&layoutCache)return layoutCache;
   layoutCache=fitLayout(ctx);layoutSig=s;return layoutCache;
 }
-function invalidateLayout(){layoutSig="";}
+export function invalidateLayout(){layoutSig="";}
 
 /* ---------- easing ---------- */
-const EASE={
+export const EASE={
   inout:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,
   out:t=>1-Math.pow(1-t,3),
   smooth:t=>1-Math.pow(1-t,3),
@@ -44,7 +48,7 @@ function cubicBezier(x1,y1,x2,y2){
   return function(x){let t=x;for(let i=0;i<8;i++){const e=fx(t)-x;if(Math.abs(e)<1e-4)break;const dv=dfx(t);if(Math.abs(dv)<1e-6)break;t-=e/dv;}
     return fy(clamp(t,0,1));};
 }
-function scaleFn(t){
+export function scaleFn(t){
   if(!S.anim||S.scaleEase==="none")return 1;
   let f;
   if(S.scaleEase==="back")f=EASE.back(t,S.over/10);
@@ -53,13 +57,13 @@ function scaleFn(t){
   else f=EASE.smooth(t);
   return (S.sFrom/100)+(1-S.sFrom/100)*f;
 }
-function animEndSec(){
+export function animEndSec(){
   const fps=+S.fps;let end=0;
   if(S.anim)end=S.dur/30;
   if(S.hlAnim)end=Math.max(end,S.hlOffset/30+S.hlDur/30);
   return end;
 }
-function animAt(sec){
+export function animAt(sec){
   const durSec=S.dur/30;
   let alpha=1,scale=1,dy=0;
   if(S.anim){
@@ -72,10 +76,10 @@ function animAt(sec){
   if(S.hlAnim){const offs=S.hlOffset/30,hd=Math.max(.05,S.hlDur/30);hp=clamp((sec-offs)/hd,0,1);}
   return {alpha,scale,dy,hp};
 }
-function totalFrames(){const fps=+S.fps;const end=animEndSec();return (S.anim||S.hlAnim)?Math.max(1,Math.round(end*fps))+S.hold:1;}
+export function totalFrames(){const fps=+S.fps;const end=animEndSec();return (S.anim||S.hlAnim)?Math.max(1,Math.round(end*fps))+S.hold:1;}
 
 /* ---------- paint (whole frame) ---------- */
-function paint(c,scale,L,o){
+export function paint(c,scale,L,o){
   o=o||{};
   c.save();c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,c.canvas.width,c.canvas.height);
   if(S.bg!=="transparent"){c.fillStyle=S.bg;c.fillRect(0,0,c.canvas.width,c.canvas.height);}

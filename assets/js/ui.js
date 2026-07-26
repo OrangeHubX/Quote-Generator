@@ -1,10 +1,17 @@
 /* ui.js — All DOM wiring: text fields, sliders, segmented groups, tabs, presets, design switching. */
+import {$, METRICS, OUTLETS, R, RELEVANT, S, clamp, ctx, cv, d, isPhone} from './data.js';
+import {KB_SEL, scheduleDraw} from './state.js';
+import {bridge, covered, remap, setRanges, subtract, trimEdges} from './text.js';
+import {invalidateLayout} from './layout.js';
+import {allBez, draw, drawCurve, loadBez, refreshBezSelect, saveBez} from './curve.js';
+import {snack} from './export.js';
+import {buildShowChips} from './panels.js';
+
 /* ---------- tap to highlight ---------- */
-let wordSig=null;
-function syncWords(){
+export function syncWords(){
   if(S.mode!=="tap")return;
   const box=$("#words");
-  if(wordSig!==S.text){
+  if(R.wordSig!==S.text){
     const re=/\S+/g,frag=document.createDocumentFragment();let m;
     while((m=re.exec(S.text))){
       const b=document.createElement("button");
@@ -12,7 +19,7 @@ function syncWords(){
       b.dataset.s=m.index;b.dataset.e=m.index+m[0].length;
       frag.appendChild(b);
     }
-    box.innerHTML="";box.appendChild(frag);wordSig=S.text;
+    box.innerHTML="";box.appendChild(frag);R.wordSig=S.text;
   }
   for(const b of box.children) b.classList.toggle("on",covered(S.ranges,+b.dataset.s,+b.dataset.e));
 }
@@ -87,8 +94,8 @@ function acMove(dir){
 function acPick(i){
   const o=acItems[i];if(!o)return;
   S.outlet=o[0];outletEl.value=o[0];markFilled(outletEl);
-  if(urlAuto||!urlEl.value.trim()){
-    S.url=o[1]+" · "+today();urlEl.value=S.url;markFilled(urlEl);urlAuto=true;
+  if(R.urlAuto||!urlEl.value.trim()){
+    S.url=o[1]+" · "+today();urlEl.value=S.url;markFilled(urlEl);R.urlAuto=true;
   }
   acClose();invalidateLayout();scheduleDraw();
 }
@@ -101,19 +108,19 @@ outletEl.addEventListener("keydown",e=>{
   else if(e.key==="Tab"){acClose();}
 });
 outletEl.addEventListener("blur",()=>setTimeout(acClose,120));
-urlEl.addEventListener("input",e=>{S.url=e.target.value;urlAuto=false;markFilled(urlEl);invalidateLayout();scheduleDraw();});
+urlEl.addEventListener("input",e=>{S.url=e.target.value;R.urlAuto=false;markFilled(urlEl);invalidateLayout();scheduleDraw();});
 
 /* ---------- text fields ---------- */
-const ta=$("#text");ta.value=S.text;
-function markFilled(el){el.classList.toggle("filled",!!el.value);}
-function autogrow(el){el.style.height="auto";el.style.height=Math.min(el.scrollHeight,210)+"px";}
+export const ta=$("#text");ta.value=S.text;
+export function markFilled(el){el.classList.toggle("filled",!!el.value);}
+export function autogrow(el){el.style.height="auto";el.style.height=Math.min(el.scrollHeight,210)+"px";}
 let lastSel=[0,0];
 const capSel=()=>{if(document.activeElement===ta)lastSel=[ta.selectionStart,ta.selectionEnd];};
 ["keyup","mouseup","touchend","select"].forEach(ev=>ta.addEventListener(ev,capSel));
 document.addEventListener("selectionchange",capSel);
 ta.addEventListener("input",()=>{
-  const rs=remap(lastText,ta.value,S.ranges);
-  S.text=ta.value;lastText=ta.value;setRanges(rs);markFilled(ta);autogrow(ta);invalidateLayout();scheduleDraw();
+  const rs=remap(R.lastText,ta.value,S.ranges);
+  S.text=ta.value;R.lastText=ta.value;setRanges(rs);markFilled(ta);autogrow(ta);invalidateLayout();scheduleDraw();
 });
 function toggleHL(){
   let [s,e]=[ta.selectionStart,ta.selectionEnd];
@@ -132,7 +139,7 @@ document.addEventListener("keydown",e=>{
 /* the strip is short, so fit the card into it unless the user pinned a view
    (setEditing in state.js handles the strip itself) */
 document.addEventListener("focusin",e=>{
-  if(!isPhone()||viewPinned)return;
+  if(!isPhone()||R.viewPinned)return;
   if(e.target.matches&&e.target.matches(KB_SEL)&&S.view!=="card"){S.view="card";setViewChip();scheduleDraw();}
 });
 
@@ -159,25 +166,63 @@ function buildMetrics(){
   });
 }
 
-/* image uploads */
+/* image uploads.
+   The picker is opened by calling input.click() from the drop's own click
+   handler. Relying on a wrapping <label> did not work: a display:none file
+   input never receives the forwarded activation. */
+const PLACEHOLDER_ICON={
+  avatar:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>',
+  media:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-4 4 3 3-2 4 3"/></svg>'
+};
+const PLACEHOLDER_TEXT={
+  avatar:"Optional — a coloured initial is used",
+  media:"Shown inside the post"
+};
 function bindImage(fileId,dropId,thumbId,nameId,clearId,key){
-  const file=$("#"+fileId),thumb=$("#"+thumbId),nm=$("#"+nameId),clr=$("#"+clearId);
-  file.addEventListener("change",e=>{
-    const f=e.target.files&&e.target.files[0];if(!f)return;
-    const img=new Image();const u=URL.createObjectURL(f);
-    img.onload=()=>{S[key]=img;thumb.style.backgroundImage="url("+u+")";thumb.innerHTML="";nm.textContent=f.name;clr.classList.remove("hide");invalidateLayout();scheduleDraw();};
+  const file=$("#"+fileId),drop=$("#"+dropId),thumb=$("#"+thumbId),nm=$("#"+nameId),clr=$("#"+clearId);
+  function accept(f){
+    if(!f||!/^image\//.test(f.type)){snack("That is not an image file.");return;}
+    const img=new Image(),u=URL.createObjectURL(f);
+    img.onload=()=>{
+      S[key]=img;
+      thumb.style.backgroundImage="url("+u+")";thumb.innerHTML="";
+      nm.textContent=f.name;clr.classList.remove("hide");
+      invalidateLayout();scheduleDraw();
+    };
+    img.onerror=()=>{URL.revokeObjectURL(u);snack("Could not read that image.");};
     img.src=u;
+  }
+  function clear(){
+    S[key]=null;file.value="";
+    thumb.style.backgroundImage="";thumb.innerHTML=PLACEHOLDER_ICON[key];
+    nm.textContent=PLACEHOLDER_TEXT[key];clr.classList.add("hide");
+    invalidateLayout();scheduleDraw();
+  }
+  file.addEventListener("change",e=>accept(e.target.files&&e.target.files[0]));
+  drop.addEventListener("click",e=>{
+    if(e.target.closest("#"+clearId))return;   /* the ✕ handles itself */
+    file.click();
   });
-  clr.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();S[key]=null;file.value="";thumb.style.backgroundImage="";
-    thumb.innerHTML=key==="avatar"?'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>':'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-4 4 3 3-2 4 3"/></svg>';
-    nm.textContent=key==="avatar"?"Optional — a coloured initial is used otherwise":"Shown inside the post";clr.classList.add("hide");invalidateLayout();scheduleDraw();});
+  drop.addEventListener("keydown",e=>{
+    if(e.key==="Enter"||e.key===" "){e.preventDefault();file.click();}
+  });
+  clr.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();clear();});
+  /* drag a file straight onto the row */
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{
+    e.preventDefault();drop.dataset.over="true";
+  }));
+  ["dragleave","dragend"].forEach(ev=>drop.addEventListener(ev,()=>{delete drop.dataset.over;}));
+  drop.addEventListener("drop",e=>{
+    e.preventDefault();delete drop.dataset.over;
+    accept(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]);
+  });
 }
 bindImage("avatarFile","avatarDrop","avatarThumb","avatarName","avatarClear","avatar");
 bindImage("mediaFile","mediaDrop","mediaThumb","mediaName","mediaClear","media");
 
 /* ---------- highlight colour ---------- */
 const hexEl=$("#hlHex"),pickEl=$("#hlPick");
-function setHl(col,fromPreset){
+export function setHl(col,fromPreset){
   S.hlColor=col;
   document.documentElement.style.setProperty("--hl",col);
   hexEl.value=col.toUpperCase();markFilled(hexEl);
@@ -196,10 +241,10 @@ hexEl.addEventListener("input",e=>{
 
 /* ---------- sliders (fill tracks handle) ---------- */
 /* ---------- sliders: drag, type an exact value, or double-click to reset ---------- */
-const SL=["width","size","ypos","sFrom","over","drift","hold","dur","hlOffset","hlDur","jq"];
+export const SL=["width","size","ypos","sFrom","over","drift","hold","dur","hlOffset","hlDur","jq"];
 const LAYOUT_SLIDERS={width:1,size:1,ypos:1};
 const SL_DEFAULT={};
-function fillSlider(el){
+export function fillSlider(el){
   const mn=+el.min,mx=+el.max,frac=(el.value-mn)/(mx-mn||1);
   /* the 13px thumb is inset by half its width at each end */
   el.style.setProperty("--fill","calc("+frac+" * (100% - 13px) + 6.5px)");
@@ -230,15 +275,23 @@ SL.forEach(id=>{
 });
 
 /* ---------- toggles ---------- */
-["header","marks","guides","anim"].forEach(id=>$("#"+id).addEventListener("change",e=>{S[id]=e.target.checked;invalidateLayout();scheduleDraw();}));
-$("#hlAnim").addEventListener("change",e=>{S.hlAnim=e.target.checked;$("#hlAnimRow").classList.toggle("hide",!S.hlAnim);scheduleDraw();});
+["header","marks","guides","anim"].forEach(id=>$("#"+id).addEventListener("change",e=>{
+  S[id]=e.target.checked;
+  if(id==="anim")applyRelevance();
+  invalidateLayout();scheduleDraw();
+}));
+$("#hlAnim").addEventListener("change",e=>{
+  S.hlAnim=e.target.checked;
+  $("#hlAnimRow").classList.toggle("hide",!S.hlAnim);
+  applyRelevance();scheduleDraw();
+});
 
 /* ---------- segmented groups ---------- */
 const FMT={still:["Download","A single settled frame."],
   seq:["Download sequence","Numbered PNGs in a zip. Keeps alpha, lossless. Use for Premiere delivery."],
   webm:["Download WebM","Video with no alpha channel. Premiere may not read it."],
   gif:["Download GIF","Looping GIF with 1-bit transparency. Good for quick overlays."]};
-function updateFabLabel(){
+export function updateFabLabel(){
   const base=FMT[S.format][0];
   $("#fabLabel").textContent=S.format==="still"?"Download "+S.imgFmt.toUpperCase():base;
   $("#fmtNote").textContent=FMT[S.format][1];
@@ -255,14 +308,14 @@ function updateFabLabel(){
       [...host.querySelectorAll("button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
       S[g]=b.dataset.v;
     }
-    if(g==="format"){updateFabLabel();}
+    if(g==="format"){updateFabLabel();applyRelevance();}
     if(g==="imgFmt"){$("#jpegQ").classList.toggle("hide",S.imgFmt!=="jpeg");updateFabLabel();}
     if(g==="scaleEase"){$("#customRow").classList.toggle("hide",S.scaleEase!=="custom");$("#overLab").textContent=(S.scaleEase==="spring")?"Bounciness":"Overshoot";drawCurve();}
     if(g==="fadeEase")drawCurve();
     if(g==="mode"){
       $("#typeBox").style.display=S.mode==="type"?"":"none";
       $("#tapBox").style.display=S.mode==="tap"?"":"none";
-      wordSig=null;
+      R.wordSig=null;
     }
     if(g==="theme"||g==="face"||g==="badge"||g==="avShape")invalidateLayout();
     scheduleDraw();
@@ -274,8 +327,7 @@ $("#hlColor").addEventListener("click",e=>{
 });
 $("#exportName").addEventListener("input",e=>{S.exportName=e.target.value;markFilled(e.target);});
 
-/* ---------- bezier presets ---------- */
-refreshBezSelect();
+/* ---------- bezier presets (populated from boot) ---------- */
 $("#bezPreset").addEventListener("change",e=>{const b=allBez()[+e.target.value];if(b){S.bezier=b[1].slice();drawCurve();scheduleDraw();}});
 $("#bezSave").addEventListener("click",()=>{
   const name=prompt("Name this curve (like a Premiere preset):","My curve");
@@ -309,69 +361,58 @@ document.addEventListener("keydown",e=>{
 });
 
 /* ---------- design switch ---------- */
-function applyDesign(){
+/* Hide every control that the current selection cannot use. */
+function applyRelevance(){
+  const P=d();
+  const ctx={id:S.design,brand:P.brand||"",social:!!P.social,post:!!P.post};
+  for(const key in RELEVANT){
+    const el=$("#"+key);if(!el)continue;
+    el.classList.toggle("hide",!RELEVANT[key](ctx));
+  }
+}
+export function applyDesign(){
   const P=d();
   const social=P.social;
-  $("#sourceCard").classList.toggle("hide",social);
-  $("#showCard").classList.toggle("hide",!social);
-  $("#socialCard").classList.toggle("hide",!social);
-  $("#metricsCard").classList.toggle("hide",!social);
-  $("#faceWrap").classList.toggle("hide",social);
-  $("#headerRow").classList.toggle("hide",social);
-  $("#marksRow").classList.toggle("hide",social);
+  applyRelevance();
   $("#themeLab").textContent=social?"Appearance":"Theme";
-  /* theme options: social only light/dark */
-  const themeBtns=[...$("#theme").children];
+  /* theme options: social cards are only ever light or dark */
+  const themeBtns=[...$("#theme").querySelectorAll("button")];
   themeBtns[1].classList.toggle("hide",social); /* Paper hidden for social */
-  if(social&&S.theme==="paper"){S.theme="light";themeBtns.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v==="light"));}
+  if(social&&S.theme==="paper"){S.theme="light";themeBtns.forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v==="light")));}
   $("#bodyHead").textContent=social?"Post text":"Quote";
   $("#textLabel").textContent=social?"What does the post say?":"Paste the quote";
   $("#subtitle").textContent=social?(P.brand.toUpperCase()+" — 9:16 for Shorts"):"9:16 source cards for Shorts";
   if(social){
     const brand=P.brand;
     $("#socialHead").textContent="Account";
-    /* subreddit field for reddit; for X reply it becomes "replying to" */
-    const showSub=(brand==="reddit")||(S.design==="x-reply");
-    $("#sub").parentElement.classList.toggle("hide",!showSub);
     const subLbl=$("#subRow").querySelector('label[for="sub"]');
     if(subLbl)subLbl.textContent=(S.design==="x-reply")?"Replying to @":"Subreddit";
-    /* handle unused for facebook */
-    $("#handle").parentElement.classList.toggle("hide",brand==="fb");
     $("#handleLabel").textContent=(brand==="reddit")?"u/username":(brand==="yt")?"@channel":(brand==="ig")?"username":"@handle";
-    /* badge only where platforms show one */
-    $("#badgeRow").classList.toggle("hide",brand==="yt"||brand==="reddit");
-    $("#avShapeRow").classList.toggle("hide",brand!=="x");
-    $("#followRow").classList.toggle("hide",!(S.design==="fb-post"||S.design==="ig-post"));
-    $("#audioRow").classList.toggle("hide",S.design!=="ig-post");
-    const showMedia=(S.design==="x-post"||S.design==="x-reply"||S.design==="reddit-post"||
-                     S.design==="fb-post"||S.design==="ig-post");
-    $("#mediaDrop").classList.toggle("hide",!showMedia);
-    $("#mediaSrcRow").classList.toggle("hide",brand!=="x");
     buildMetrics();buildShowChips();
-    /* sync identity inputs + controls */
-    ["name","handle","sub","time","audio","mediaSrc"].forEach(id=>{const el=$("#"+id);if(el){el.value=S[id]||"";markFilled(el);}});
-    [...$("#badge").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===S.badge));
-    [...$("#avShape").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===S.avShape));
+    /* push state into the identity controls */
+    ["name","handle","sub","time","audio","mediaSrc"].forEach(id=>{const el=$("#"+id);if(el)el.value=S[id]||"";});
+    $("#badge").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===S.badge)));
+    $("#avShape").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===S.avShape)));
     $("#follow").checked=S.follow;$("#likeOn").checked=S.likeOn;
   }
   invalidateLayout();updateFabLabel();scheduleDraw();
 }
 
 /* ---------- view / play ---------- */
-function setViewChip(){
+export function setViewChip(){
   const b=$("#view");
   b.setAttribute("aria-pressed",S.view==="card");
   b.querySelector("span").textContent=S.view==="card"?"Fit frame":"Fit card";
 }
-$("#view").addEventListener("click",()=>{S.view=S.view==="frame"?"card":"frame";viewPinned=true;setViewChip();scheduleDraw();});
+$("#view").addEventListener("click",()=>{S.view=S.view==="frame"?"card":"frame";R.viewPinned=true;setViewChip();scheduleDraw();});
 cv.addEventListener("click",()=>$("#view").click());
 $("#play").addEventListener("click",()=>{
-  playing=!playing;
+  R.playing=!R.playing;
   const b=$("#play");
-  b.querySelector("span").textContent=playing?"Stop":"Play";
-  b.querySelector("svg").innerHTML=playing?'<rect x="6" y="6" width="12" height="12" rx="2"></rect>':'<path d="M7 4l13 8-13 8z"></path>';
-  b.setAttribute("aria-pressed",playing);
-  if(playing)playT0=performance.now();
+  b.querySelector("span").textContent=R.playing?"Stop":"Play";
+  b.querySelector("svg").innerHTML=R.playing?'<rect x="6" y="6" width="12" height="12" rx="2"></rect>':'<path d="M7 4l13 8-13 8z"></path>';
+  b.setAttribute("aria-pressed",R.playing);
+  if(R.playing)R.playT0=performance.now();
   draw();
 });
 

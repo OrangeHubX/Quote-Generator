@@ -1,15 +1,15 @@
 /* data.js — Static data: frame size, typefaces, card themes, outlet list, per-platform palettes and config. */
-const FW=1080,FH=1920;
-const FACES={serif:'"Iowan Old Style",Georgia,"Times New Roman",serif',
+export const FW=1080,FH=1920;
+export const FACES={serif:'"Iowan Old Style",Georgia,"Times New Roman",serif',
   sans:'"Helvetica Neue",Helvetica,Arial,sans-serif',
   mono:'ui-monospace,"SF Mono",Menlo,Consolas,monospace'};
-const SANS=FACES.sans;
-const THEMES={
+export const SANS=FACES.sans;
+export const THEMES={
   light:{card:"#FFFFFF",ink:"#12141A",meta:"#6B7280",rule:"#E3E6EA",shadow:"rgba(0,0,0,.30)",grain:0},
   paper:{card:"#F7F3EC",ink:"#1C1A17",meta:"#7A7266",rule:"#E2DACC",shadow:"rgba(0,0,0,.28)",grain:.055},
   dark :{card:"#15171C",ink:"#F2F4F7",meta:"#8B93A0",rule:"#2C313A",shadow:"rgba(0,0,0,.55)",grain:.03}
 };
-const OUTLETS=[
+export const OUTLETS=[
 ["Video Games Chronicle","videogameschronicle.com"],["IGN","ign.com"],["Eurogamer","eurogamer.net"],
 ["GameSpot","gamespot.com"],["Kotaku","kotaku.com"],["Polygon","polygon.com"],["PC Gamer","pcgamer.com"],
 ["Rock Paper Shotgun","rockpapershotgun.com"],["Game Developer","gamedeveloper.com"],
@@ -66,10 +66,10 @@ const BRAND={
   ig:{light:{bg:"#FFFFFF",ink:"#000000",sub:"#737373",rule:"#DBDBDB",accent:"#0095F6",badge:"#3897F0",like:"#FF3040",rt:"#737373"},
      dark :{bg:"#000000",ink:"#FAFAFA",sub:"#A8A8A8",rule:"#262626",accent:"#0095F6",badge:"#3897F0",like:"#FF3040",rt:"#A8A8A8"}}
 };
-const AVCOL=["#1D9BF0","#FF4500","#7B61FF","#00BA7C","#F91880","#FF7A45","#0095F6","#E1306C"];
+export const AVCOL=["#1D9BF0","#FF4500","#7B61FF","#00BA7C","#F91880","#FF7A45","#0095F6","#E1306C"];
 
 /* metric fields shown per brand */
-const METRICS={
+export const METRICS={
   x:[["replies","Replies","24"],["retweets","Reposts","318"],["likes","Likes","2.4K"],["views","Views","98K"]],
   reddit:[["likes","Upvotes","3.1K"],["replies","Comments","214"]],
   yt:[["likes","Likes","1.2K"],["replies","Replies","48"]],
@@ -77,7 +77,7 @@ const METRICS={
   ig:[["likes","Likes","5,204"],["replies","Comments","25"],["retweets","Reshares","452"]]
 };
 
-const S={
+export const S={
   design:"quote",
   text:"Rockstar says GTA 6 will not be delayed again, and the studio calls the new date final.",
   ranges:[[24,45]],outlet:"",url:"",
@@ -101,7 +101,7 @@ const S={
 
 /* Elements that can be switched off, per platform family.
    [key, label, applies-to test] */
-const HIDEABLE=[
+export const HIDEABLE=[
   ["avatar",  "Profile picture", ()=>true],
   ["name",    "Display name",    b=>b!=="reddit"],
   ["handle",  "Username",        b=>b==="x"||b==="reddit"||b==="ig"],
@@ -116,14 +116,59 @@ const HIDEABLE=[
   ["actions", "Action row",      b=>b==="fb"||b==="ig"||b==="yt"||b==="reddit"]
 ];
 /* is an element visible? */
-function V_ON(key){return !S.hidden[key];}
+export function V_ON(key){return !S.hidden[key];}
 
-const $=s=>document.querySelector(s);
-const cv=$("#preview"),ctx=cv.getContext("2d");
-let lastText=S.text,playing=false,playT0=0,editing=false,viewPinned=false,urlAuto=true;
-const isPhone=()=>window.matchMedia("(max-width:900px)").matches;
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function d(){return DESIGNS[S.design];}
-function themeKey(){return S.theme==="dark"?"dark":"light";}
-function brandPal(){return BRAND[d().brand][themeKey()];}
+/* Which controls are relevant to the current selection. Anything whose test
+   fails is hidden outright, so a card type only ever shows what it can use.
+   Each test gets {id, brand, social, post} for the active design. */
+export const RELEVANT={
+  /* --- account --- */
+  nameRow:     x=>x.social&&x.brand!=="reddit",     /* reddit shows r/sub and u/user */
+  handleRow:   x=>x.social&&x.brand!=="fb",         /* facebook shows a display name only */
+  subRow:      x=>x.brand==="reddit"||x.id==="x-reply",
+  audioRow:    x=>x.id==="ig-post",
+  badgeRow:    x=>x.social&&x.brand!=="yt"&&x.brand!=="reddit",
+  avShapeRow:  x=>x.brand==="x",
+  followRow:   x=>x.id==="fb-post"||x.id==="ig-post",
+  likeRow:     x=>x.brand==="x"||x.brand==="ig",    /* only these fill on like */
+  avatarDrop:  x=>x.social,
+  /* --- media --- */
+  mediaDrop:   x=>["x-post","x-reply","reddit-post","fb-post","ig-post"].indexOf(x.id)>=0,
+  mediaSrcRow: x=>x.brand==="x",                    /* only X draws "From <source>" */
+  /* --- quote-only --- */
+  sourceCard:  x=>!x.social,
+  faceWrap:    x=>!x.social,
+  headerRow:   x=>!x.social,
+  marksRow:    x=>!x.social,
+  /* --- social-only --- */
+  socialCard:  x=>x.social,
+  metricsCard: x=>x.social,
+  showCard:    x=>x.social,
+  /* --- motion: pointless unless something animates --- */
+  timingCap:   x=>S.anim||S.hlAnim,
+  durRow:      x=>S.anim,
+  holdRow:     x=>S.anim||S.hlAnim,
+  curvesGroup: x=>S.anim,
+  /* --- export --- */
+  fpsRow:      x=>S.format!=="still"                /* a still has no frame rate */
+};
+
+export const $=s=>document.querySelector(s);
+export const cv=$("#preview"),ctx=cv.getContext("2d");
+/* Mutable runtime flags live on one object: ES module imports are read-only
+   bindings, so cross-module writes have to go through a property. */
+export const R={
+  lastText:S.text,   /* last committed textarea value, for range remapping */
+  playing:false,     /* preview loop running */
+  playT0:0,          /* preview loop start time */
+  editing:false,     /* a text field has focus */
+  viewPinned:false,  /* user chose the fit mode explicitly */
+  urlAuto:true,      /* URL field still auto-filled from the outlet */
+  wordSig:null       /* text the tap-to-highlight chips were built from */
+};
+export const isPhone=()=>window.matchMedia("(max-width:900px)").matches;
+export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+export function d(){return DESIGNS[S.design];}
+export function themeKey(){return S.theme==="dark"?"dark":"light";}
+export function brandPal(){return BRAND[d().brand][themeKey()];}
 

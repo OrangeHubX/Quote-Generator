@@ -1,4 +1,10 @@
 /* panels.js — Design combobox, element visibility chips and saved presets. */
+import {$, HIDEABLE, R, S, d} from './data.js';
+import {scheduleDraw} from './state.js';
+import {wrap} from './text.js';
+import {invalidateLayout} from './layout.js';
+import {snack} from './export.js';
+import {SL, applyDesign, autogrow, fillSlider, setHl, setViewChip, ta, updateFabLabel} from './ui.js';
 
 /* ---------- design combobox ---------- */
 const DESIGN_GROUPS=[
@@ -29,7 +35,7 @@ function buildDesignPop(){
     }
   }
 }
-function syncDesignBtn(){
+export function syncDesignBtn(){
   const {text,col}=designLabel(S.design);
   $("#designVal").textContent=text;
   $("#designDot").style.background=col;
@@ -58,7 +64,7 @@ document.addEventListener("keydown",e=>{
 
 /* ---------- element visibility ---------- */
 const TICK='<svg class="tick" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
-function buildShowChips(){
+export function buildShowChips(){
   const brand=d().brand;if(!brand)return;
   const box=$("#showGrid");box.innerHTML="";
   const wrap=document.createElement("div");wrap.className="chips";
@@ -93,7 +99,7 @@ $("#hideCounts").addEventListener("change",e=>{
    serialised — those stay as they are when a preset is applied. */
 const PRESET_KEY="qs-presets";
 const PRESET_SKIP={avatar:1,media:1,ranges:1,text:1};
-function loadPresets(){try{return JSON.parse(localStorage.getItem(PRESET_KEY)||"[]");}catch(_){return [];}}
+export function loadPresets(){try{return JSON.parse(localStorage.getItem(PRESET_KEY)||"[]");}catch(_){return [];}}
 function storePresets(l){try{localStorage.setItem(PRESET_KEY,JSON.stringify(l));}catch(_){snack("Could not save — storage is full.");}}
 function snapshot(){
   const o={};
@@ -119,7 +125,7 @@ function applyPreset(p){
   invalidateLayout();scheduleDraw();
   snack("Applied “"+p.name+"”");
 }
-function renderPresets(){
+export function renderPresets(){
   const box=$("#presetList"),list=loadPresets();
   box.innerHTML="";
   if(!list.length){
@@ -190,14 +196,14 @@ function syncAllControls(){
    ["exportName","exportName"],["hlHex","hlColor"]].forEach(([id,k])=>{
     const el=$("#"+id);if(el&&S[k]!==undefined)el.value=S[k];
   });
-  lastText=S.text;autogrow(ta);
+  R.lastText=S.text;autogrow(ta);
   /* dependent visibility */
   $("#jpegQ").classList.toggle("hide",S.imgFmt!=="jpeg");
   $("#customRow").classList.toggle("hide",S.scaleEase!=="custom");
   $("#hlAnimRow").classList.toggle("hide",!S.hlAnim);
   $("#typeBox").style.display=S.mode==="type"?"":"none";
   $("#tapBox").style.display=S.mode==="tap"?"":"none";
-  wordSig=null;
+  R.wordSig=null;
   setHl(S.hlColor,["#FFA8C5","#FFE566","#9BF6A5","#8BD3FF","#FF7A45"]
     .some(x=>x.toLowerCase()===String(S.hlColor).toLowerCase()));
   setViewChip();updateFabLabel();syncDesignBtn();

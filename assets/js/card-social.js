@@ -1,4 +1,8 @@
 /* card-social.js — Social cards: icon table, avatars and one renderer per platform. */
+import {AVCOL, FW, S, SANS, V_ON, brandPal, themeKey} from './data.js';
+import {rr} from './state.js';
+import {ellip, fmtCount, measureBlock, paintBlock} from './text.js';
+
 /* ---------- SOCIAL: platform-accurate cards ---------- */
 function avatarInitial(){const n=(S.name||S.handle||"?").trim();return (n[0]||"?").toUpperCase();}
 function avatarColor(){const n=(S.name||S.handle||"x");let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;return AVCOL[h%AVCOL.length];}
@@ -91,7 +95,7 @@ const SCFG={
   "ig-comment":    {brand:"ig",    variant:"igcom"}
 };
 
-function layoutSocial(c,fs){
+export function layoutSocial(c,fs){
   const cfg=SCFG[S.design],brand=cfg.brand,V=cfg.variant,pal=brandPal();
   const cardW=Math.round(FW*(S.width/100));
   const noAv=!V_ON("avatar");        /* hidden avatar gives its gutter back */
@@ -210,7 +214,7 @@ function layoutSocial(c,fs){
   return L;
 }
 
-function paintSocial(c,L,A){
+export function paintSocial(c,L,A){
   const X=L.x,Y=L.y,W=L.cardW,H=L.cardH,fs=L.fs,pal=L.pal,V=L.V;
   const hp=A?A.hp:1;
   const radius=(V==="igpost"||V==="fbpost")?Math.round(fs*0.35):Math.round(fs*0.6);

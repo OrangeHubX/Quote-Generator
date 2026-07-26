@@ -1,11 +1,15 @@
 /* card-quote.js — The news quote card: layout and paint. */
+import {FACES, FW, S, SANS, THEMES} from './data.js';
+import {GRAIN, rr} from './state.js';
+import {drawTracked, fitLabel, measureBlock, normalize, paintBlock, wrap} from './text.js';
+
 /* ---------- QUOTE layout ---------- */
 function composeText(){
   const raw=S.text;
   if(!(S.marks&&raw.trim()))return {text:raw,off:0};
   return {text:"“"+raw.trim()+"”",off:1-raw.match(/^\s*/)[0].length};
 }
-function layoutQuote(c,fs){
+export function layoutQuote(c,fs){
   const face=FACES[S.face],cardW=FW*(S.width/100),pad=Math.round(fs*1.25);
   const maxW=Math.max(10,cardW-pad*2),lh=fs*1.42;
   const {text,off}=composeText();
@@ -27,7 +31,7 @@ function layoutQuote(c,fs){
   const cardH=Math.round(pad*2+headH+textH+footH);
   return {kind:"quote",fs,face,cardW,cardH,pad,lh,text,rs,lines,header,headH,foot,footH};
 }
-function paintQuote(c,L,A){
+export function paintQuote(c,L,A){
   const T=THEMES[S.theme],{x,y,cardW,cardH,pad,fs,lh,text,rs,lines}=L;
   c.save();
   c.shadowColor=T.shadow;c.shadowBlur=fs*0.9;c.shadowOffsetY=fs*0.35;

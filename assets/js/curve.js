@@ -1,4 +1,9 @@
 /* curve.js — Motion graph, draggable bezier handles and the preview draw loop. */
+import {$, FH, FW, R, S, SANS, clamp, ctx, cv, isPhone} from './data.js';
+import {scheduleDraw} from './state.js';
+import {EASE, animAt, animEndSec, fitLayoutCached, paint, scaleFn, totalFrames} from './layout.js';
+import {syncWords} from './ui.js';
+
 /* ---------- bezier / curve editor ---------- */
 const BEZ_BUILTIN=[
   ["Ease out back",[.34,1.56,.64,1]],
@@ -8,15 +13,15 @@ const BEZ_BUILTIN=[
   ["Snappy",[.5,1.8,.5,1]],
   ["Linear",[0,0,1,1]]
 ];
-function loadBez(){try{return JSON.parse(localStorage.getItem("qs-bez")||"[]");}catch(_){return [];}}
-function saveBez(list){try{localStorage.setItem("qs-bez",JSON.stringify(list));}catch(_){}}
-function allBez(){return BEZ_BUILTIN.concat(loadBez());}
-function refreshBezSelect(){
+export function loadBez(){try{return JSON.parse(localStorage.getItem("qs-bez")||"[]");}catch(_){return [];}}
+export function saveBez(list){try{localStorage.setItem("qs-bez",JSON.stringify(list));}catch(_){}}
+export function allBez(){return BEZ_BUILTIN.concat(loadBez());}
+export function refreshBezSelect(){
   const sel=$("#bezPreset");sel.innerHTML="";
   allBez().forEach((b,i)=>{const o=document.createElement("option");o.value=i;o.textContent=b[0];sel.appendChild(o);});
 }
 let bezDrag=null;
-function drawCurve(){
+export function drawCurve(){
   const el=$("#curve");if(!el.offsetParent)return;
   /* draw in CSS pixels at device resolution so the labels stay legible */
   const W=el.clientWidth||340,H=el.clientHeight||132;
@@ -94,7 +99,7 @@ function viewBox(L){
     return {x:L.x-m,y:L.y-m,w:L.cardW+m*2,h:L.cardH+m*2};}
   return {x:0,y:0,w:FW,h:FH};
 }
-function draw(){
+export function draw(){
   const L=fitLayoutCached(),vb=viewBox(L);
   const stage=document.querySelector(".stage");
   const vh=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vh"))||window.innerHeight;
@@ -109,9 +114,9 @@ function draw(){
   const pw=Math.round(w*dpr),ph=Math.round(h*dpr);
   if(cv.width!==pw||cv.height!==ph){cv.width=pw;cv.height=ph;}
   let A={alpha:1,scale:1,dy:0,hp:1};
-  if(playing){
-    const end=animEndSec(),tail=S.hold/(+S.fps),el=(performance.now()-playT0)/1000;
-    if(el>end+tail+0.6)playT0=performance.now();
+  if(R.playing){
+    const end=animEndSec(),tail=S.hold/(+S.fps),el=(performance.now()-R.playT0)/1000;
+    if(el>end+tail+0.6)R.playT0=performance.now();
     A=animAt(el);
   }
   paint(ctx,pw/vb.w,L,{tx:-vb.x,ty:-vb.y,guides:S.guides&&S.view==="frame",anim:A});
@@ -124,6 +129,6 @@ function draw(){
   f.className=L.overflow?"warn":"";
   if($("#curve").offsetParent)drawCurve();
   syncWords();
-  if(playing)requestAnimationFrame(draw);
+  if(R.playing)requestAnimationFrame(draw);
 }
 

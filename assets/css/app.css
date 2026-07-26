@@ -188,7 +188,11 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .drop .lb{flex:1;min-width:0;font-size:11.5px}
 .drop .lb small{display:block;color:var(--fg-3);font-size:10.5px;margin-top:1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.drop input[type=file]{display:none}
+/* kept in the layout but invisible — display:none breaks activation */
+.drop input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.drop{position:relative}
+.drop[data-over=true]{border-color:var(--acc);background:var(--acc-soft)}
+.drop:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 .drop .x{background:none;border:0;color:var(--fg-3);cursor:pointer;font-size:16px;padding:2px 5px;line-height:1}
 .drop .x:hover{color:var(--warn)}
 
@@ -264,6 +268,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .presets .pr .act.del:hover{color:var(--warn)}
 .presets .empty{font-size:11px;color:var(--fg-3);padding:3px 0}
 
+/* ---- drag grip (mobile only) ---- */
+.grip{display:none}
+
 /* mobile bottom bar (hidden on desktop) */
 .mbar{display:none}
 
@@ -276,15 +283,33 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 @media (max-width:900px){
   :root{--ctl:34px;--lab:78px}
   .app{display:flex;flex-direction:column}
-  /* height comes from --vh, never static vh, so the keyboard cannot squeeze
-     the controls out of view */
-  .stage{order:0;flex:none;height:calc(var(--vh,100dvh) * 0.40);padding:10px 12px 6px;gap:8px;background:none;
-    transition:height .16s ease}
+  /* The canvas height is the one knob: dragging the grip changes it, and the
+     editor simply takes whatever is left. Heights come from --vh, never static
+     vh, so the keyboard cannot squeeze the controls out of view. */
+  .stage{flex:none;height:var(--canvasH,40vh);padding:10px 12px 6px;gap:8px;background:none;
+    transition:height .2s cubic-bezier(.2,0,0,1)}
+  .app[data-drag=true] .stage{transition:none}
+  .app[data-sheet=full] .stage{padding:0}
+  .app[data-sheet=full] .stage .tools,
+  .app[data-sheet=full] .stage .readout{display:none}
   /* while a field is focused the canvas becomes a short live strip */
-  :root[data-kb="1"] .stage{height:96px;padding:6px 12px 2px;gap:0}
+  :root[data-kb="1"] .stage{height:96px!important;padding:6px 12px 2px;gap:0}
   :root[data-kb="1"] .stage .tools,
   :root[data-kb="1"] .stage .readout{display:none}
-  .insp{order:1;flex:1;min-height:0;border-left:0;border-top:1px solid var(--line);background:var(--panel)}
+
+  /* ---- drag grip ---- */
+  .grip{display:flex;flex:none;align-items:center;justify-content:center;
+    width:100%;height:22px;padding:0;margin:0;border:0;background:var(--panel);
+    border-top:1px solid var(--line);border-radius:12px 12px 0 0;cursor:grab;
+    touch-action:none;-webkit-tap-highlight-color:transparent}
+  .grip span{display:block;width:40px;height:4px;border-radius:2px;background:var(--line-2);
+    transition:background .12s,width .12s}
+  .grip:active{cursor:grabbing}
+  .grip:active span,.app[data-drag=true] .grip span{background:var(--acc);width:56px}
+  /* only the grip is reachable when the editor is parked at the bottom */
+  .app[data-sheet=peek] .pages,
+  .app[data-sheet=peek] .insp-top{opacity:.35;pointer-events:none}
+  .insp{flex:1;min-height:0;border-left:0;border-top:0;background:var(--panel)}
   .insp-top{padding:8px 11px}
   .insp-top .mark{display:none}
   .tabs{display:none}                 /* moved to the thumb zone */
@@ -316,3 +341,12 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
   .snack{bottom:calc(66px + env(safe-area-inset-bottom))}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* boot failure notice — removed by boot.js on a successful start */
+#bootmsg{position:fixed;inset:0;z-index:99;display:flex;flex-direction:column;gap:10px;
+  align-items:center;justify-content:center;padding:32px;text-align:center;
+  background:var(--bg);color:var(--fg-2);font-size:13px;line-height:1.6}
+#bootmsg b{color:var(--fg);font-size:15px}
+#bootmsg span{max-width:34em}
+#bootmsg code{font-family:var(--mono);font-size:12px;background:var(--input);
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--fg)}

@@ -1,11 +1,14 @@
 /* text.js — Highlight range maths, word wrapping and the shared highlight-aware text block. */
+import {$, S, SANS} from './data.js';
+import {rr} from './state.js';
+
 /* ---------- ranges ---------- */
-function normalize(rs){const a=rs.filter(r=>r[1]>r[0]).sort((x,y)=>x[0]-y[0]),o=[];
+export function normalize(rs){const a=rs.filter(r=>r[1]>r[0]).sort((x,y)=>x[0]-y[0]),o=[];
   for(const r of a){const l=o[o.length-1];if(l&&r[0]<=l[1])l[1]=Math.max(l[1],r[1]);else o.push([r[0],r[1]]);}return o;}
-function subtract(rs,s,e){const o=[];for(const [a,b] of rs){
+export function subtract(rs,s,e){const o=[];for(const [a,b] of rs){
   if(b<=s||a>=e){o.push([a,b]);continue;}if(a<s)o.push([a,s]);if(b>e)o.push([e,b]);}return o;}
-function covered(rs,s,e){return rs.some(([a,b])=>a<=s&&b>=e);}
-function trimEdges(rs){
+export function covered(rs,s,e){return rs.some(([a,b])=>a<=s&&b>=e);}
+export function trimEdges(rs){
   const t=S.text,o=[];
   for(let [a,b] of rs){
     while(a<b&&/\s/.test(t[a]))a++;
@@ -14,7 +17,7 @@ function trimEdges(rs){
   }
   return o;
 }
-function bridge(rs){
+export function bridge(rs){
   rs=normalize(trimEdges(rs));const o=[];
   for(const r of rs){
     const l=o[o.length-1],gap=l?S.text.slice(l[1],r[0]):"x";
@@ -22,8 +25,8 @@ function bridge(rs){
   }
   return o;
 }
-function setRanges(rs){S.ranges=trimEdges(normalize(rs));}
-function remap(o,n,rs){
+export function setRanges(rs){S.ranges=trimEdges(normalize(rs));}
+export function remap(o,n,rs){
   if(o===n)return rs;
   let p=0;const m=Math.min(o.length,n.length);
   while(p<m&&o[p]===n[p])p++;
@@ -37,7 +40,7 @@ function remap(o,n,rs){
   return normalize(out.map(r=>[Math.max(0,r[0]),Math.min(n.length,r[1])]));
 }
 /* ---------- wrap ---------- */
-function wrap(c,text,maxW,indent){
+export function wrap(c,text,maxW,indent){
   const lines=[];if(maxW<=0)return lines;let para=0;
   /* the first line can be shortened to sit beside an inline label (IG caption) */
   const lim=()=>(indent&&lines.length===0)?Math.max(10,maxW-indent):maxW;
@@ -72,21 +75,21 @@ function segments(text,ls,le,rs){
   return o;
 }
 function trackedW(c,s,sp){let w=0;for(const ch of s)w+=c.measureText(ch).width+sp;return Math.max(0,w-sp);}
-function drawTracked(c,s,x,y,sp){let cx=x;for(const ch of s){c.fillText(ch,cx,y);cx+=c.measureText(ch).width+sp;}}
-function fitLabel(c,str,maxW,fs,tr,weight){
+export function drawTracked(c,s,x,y,sp){let cx=x;for(const ch of s){c.fillText(ch,cx,y);cx+=c.measureText(ch).width+sp;}}
+export function fitLabel(c,str,maxW,fs,tr,weight){
   let f=fs,s=str,g=0;
   const w=()=>{c.font=(weight||"")+f+"px "+SANS;return tr?trackedW(c,s,f*tr):c.measureText(s).width;};
   while(w()>maxW&&f>Math.max(9,fs*0.55)&&g++<80)f-=1;
   if(w()>maxW){while(s.length>2&&w()>maxW)s=s.slice(0,-1);s=s.replace(/\s+$/,"")+"…";}
   return {str:s,fs:f,tr:tr||0};
 }
-function ellip(c,str,maxW){
+export function ellip(c,str,maxW){
   if(!str)return "";
   if(c.measureText(str).width<=maxW)return str;
   let s=str;while(s.length>1&&c.measureText(s+"…").width>maxW)s=s.slice(0,-1);
   return s+"…";
 }
-function fmtCount(v){
+export function fmtCount(v){
   const s=String(v).trim();
   if(!s)return "";
   if(/[a-zA-Z,]/.test(s))return s;              /* already formatted like 2.4K */
@@ -97,13 +100,13 @@ function fmtCount(v){
 }
 
 /* ---------- shared rich-text block (highlight aware + slide-in) ---------- */
-function measureBlock(c,text,rs,maxW,fs,face,lh,weight,indent){
+export function measureBlock(c,text,rs,maxW,fs,face,lh,weight,indent){
   c.font=(weight||"")+fs+"px "+face;
   const lines=text.trim()?wrap(c,text,maxW,indent):[];
   const h=lines.length?lines.length*lh-(lh-fs*1.05):0;
   return {lines,h};
 }
-function paintBlock(c,o){
+export function paintBlock(c,o){
   /* o:{text,rs,lines,x,y,fs,lh,face,ink,hlColor,hlStyle,hp,weight} */
   const {text,rs,lines,x,y,fs,lh,face,ink,hlColor,hlStyle}=o;
   const hp=o.hp==null?1:o.hp;

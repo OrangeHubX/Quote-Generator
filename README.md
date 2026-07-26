@@ -3,9 +3,10 @@
 A single-page tool for building 9:16 quote and social-post graphics for YouTube
 Shorts, with motion and frame-accurate export for Premiere Pro.
 
-Open `index.html` — there is no build step. Scripts are plain (non-module)
-`<script>` tags on purpose, so the app also runs when the file is opened
-straight off disk rather than served.
+Deployed on GitHub Pages. There is no build step, but the code is ES modules,
+so it **must be served over http** — browsers block modules on `file://`. For
+local work run `npx http-server` in this folder; opening `index.html` directly
+shows a notice explaining exactly that rather than a blank page.
 
 ## Layout
 
@@ -23,10 +24,18 @@ assets/js/
   export.js             zip writer, GIF encoder, export paths
   ui.js                 DOM wiring: fields, sliders, segmented groups, tabs
   panels.js             design combobox, show/hide chips, saved presets
-  boot.js               startup
+  sheet.js              draggable editor sheet (mobile)
+  boot.js               entry point — the only script index.html loads
 ```
 
-Load order matters: `data.js` first, `boot.js` last.
+`boot.js` is the entry; everything else is reached through imports. A few
+modules import from each other (`ui` ↔ `curve`, `ui` ↔ `panels`); those cycles
+resolve because the cross-references are function calls, never module-init
+reads. Anything that must run at startup goes in `boot.js`, not at a module's
+top level — that is what caused a `BEZ_BUILTIN` temporal-dead-zone error during
+the conversion.
+
+`window.QS` exposes `S`, `R` and a few functions for console debugging.
 
 ## Notes
 
@@ -42,6 +51,20 @@ blanks every engagement number while keeping the icons.
 
 **Presets** live in `localStorage` and store all of `S` except the decoded
 images and the quote text itself, so a preset is a reusable *look*.
+
+**Relevance.** `RELEVANT` in `data.js` maps a control id to a test against the
+active design; anything that fails is hidden, so a card type only ever shows
+what it can actually use. `applyRelevance()` re-runs on design, animation and
+export-format changes.
+
+**Draggable editor (mobile).** `--canvasH` is the single knob — the editor takes
+whatever height is left. Dragging the grip snaps between three stops: editor
+full (canvas hidden), split, and parked at the bottom with only the grip in
+reach. Tapping the grip cycles them.
+
+**Mutable state across modules.** Imported bindings are read-only, so runtime
+flags that several modules write (`playing`, `editing`, `lastText`, …) live as
+properties on the exported `R` object in `data.js`.
 
 ## Export
 
