@@ -38,37 +38,39 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
        height:var(--vh,100%);max-height:var(--vh,100%)}
 }
 
-/* ---- canvas stage ---- */
-.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
-  padding:18px;min-height:0;min-width:0;overflow:hidden;background:
+/* ---- canvas stage ----
+   Three bands. Only the middle one resizes, so the tools and the ruler hold
+   their position whatever the canvas does — and neither sits on the artwork. */
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:14px 18px;min-height:0;min-width:0;overflow:hidden;background:
     radial-gradient(circle at 50% 38%,#15171E 0%,var(--bg) 72%)}
-/* sized by the canvas inside it, so the floating overlays can anchor to the
-   artwork rather than to the stage */
-.cwrap{position:relative;line-height:0;min-height:0}
+.sbar{flex:none;display:flex;align-items:center;gap:6px;width:100%;max-width:620px}
+.sbar .sp{flex:1;min-width:8px}
+/* flex:1 with min-height:0 means the canvas gets what is left and can never push
+   the bands around — the sizing is one-way */
+.cwrap{flex:1;min-height:0;width:100%;display:grid;place-items:center;overflow:hidden}
 .viewer{line-height:0;border-radius:10px;overflow:hidden}
 #preview{display:block;cursor:zoom-in;box-shadow:0 12px 40px rgba(0,0,0,.55);
   background:conic-gradient(#22242B 25%,#191B21 0 50%,#22242B 0 75%,#191B21 0) 0 0/18px 18px}
 
-/* ---- floating canvas controls ---- */
-.ovl{position:absolute;display:flex;gap:5px;line-height:1;z-index:2}
-.ovl-tl{top:8px;left:8px;flex-direction:column;align-items:flex-start;pointer-events:none}
-.ovl-tr{top:8px;right:8px}
-.badge{font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--fg-2);
-  background:rgba(11,12,15,.62);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.07);
-  border-radius:5px;padding:3px 6px}
+/* ---- stage tool bar ---- */
+.badge{flex:none;font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--fg-2);
+  background:var(--panel);border:1px solid var(--line);
+  border-radius:5px;padding:4px 7px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
 .badge.dim{color:var(--fg-3)}
 .badge b{color:var(--fg-2);font-weight:500}
 .badge b.warn{color:var(--warn)}
-.fab{width:30px;height:30px;padding:0;border-radius:8px;cursor:pointer;display:grid;place-items:center;
-  color:var(--fg-2);background:rgba(11,12,15,.62);backdrop-filter:blur(6px);
-  border:1px solid rgba(255,255,255,.07)}
-.fab:hover{background:rgba(37,41,50,.9);color:var(--fg)}
+.fab{flex:none;width:30px;height:30px;padding:0;border-radius:var(--r);cursor:pointer;
+  display:grid;place-items:center;color:var(--fg-2);background:var(--panel);
+  border:1px solid var(--line)}
+.fab:hover{background:var(--input-hi);color:var(--fg)}
 .fab svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #play svg{fill:currentColor;stroke:none}
 .fab[aria-pressed=true]{background:var(--acc);border-color:transparent;color:var(--acc-ink)}
 
 /* ---- frame timeline ---- */
-.tl{flex:none;display:flex;align-items:center;gap:8px;width:100%;max-width:560px}
+.tl{flex:none;display:flex;align-items:center;gap:8px;width:100%;max-width:620px}
 #tlBar{flex:1;min-width:0;height:34px;display:block;touch-action:none;cursor:ew-resize;
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
 .tl-read{flex:none;height:26px;padding:0 8px;border-radius:var(--r);border:1px solid var(--line);
@@ -450,19 +452,22 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
   /* The canvas height is the one knob: dragging the grip changes it, and the
      editor simply takes whatever is left. Heights come from --vh, never static
      vh, so the keyboard cannot squeeze the controls out of view. */
-  .stage{flex:none;height:var(--canvasH,40vh);padding:10px 12px 6px;gap:7px;background:none;
+  .stage{flex:none;height:var(--canvasH,40vh);padding:7px 10px;gap:6px;background:none;
     transition:height .2s cubic-bezier(.2,0,0,1)}
+  .sbar{gap:5px}
+  .badge{font-size:9.5px;padding:3px 5px}
+  #tlBar{height:28px}
+  .tl-read{height:24px;padding:0 6px}
   .app[data-drag=true] .stage{transition:none}
   .app[data-sheet=full] .stage{padding:0}
-  .app[data-sheet=full] .stage .ovl,
+  .app[data-sheet=full] .stage .sbar,
   .app[data-sheet=full] .stage .tl{display:none}
   /* while a field is focused the canvas becomes a short live strip — the
      overlays and the ruler would not fit and are not needed mid-typing */
-  :root[data-kb="1"] .stage{height:96px;padding:6px 12px 2px;gap:0}
-  :root[data-kb="1"] .stage .ovl,
+  :root[data-kb="1"] .stage{height:96px;padding:5px 10px 2px;gap:0}
+  :root[data-kb="1"] .stage .sbar,
   :root[data-kb="1"] .stage .tl{display:none}
-  #tlBar{height:30px}
-  .fab{width:34px;height:34px}
+  .fab{width:30px;height:30px}
 
   /* ---- drag grip ---- */
   .grip{display:flex;flex:none;align-items:center;justify-content:center;
@@ -604,9 +609,8 @@ input[type=range]:active::-webkit-slider-thumb{transform:scale(1.25)}
 @keyframes viewerIn{from{opacity:0}to{opacity:1}}
 .viewer{animation:viewerIn .3s ease both}
 
-/* floating tools and the ruler settle in rather than appearing */
+/* the ruler settles in rather than appearing */
 @keyframes ovlIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-.ovl{animation:ovlIn .24s var(--e-out) both}
 .tl:not(.hide){animation:ovlIn .22s var(--e-out) both}
 .fab,.tl-read{transition:background var(--t) ease,color var(--t) ease,
               border-color var(--t) ease,transform .1s var(--e-out)}

@@ -8,7 +8,7 @@ import {invalidateLayout} from './layout.js';
 import {scheduleDraw, syncVH} from './state.js';
 import {draw} from './curve.js';
 import {initGraph, setEaseHook} from './graph.js';
-import {clampFrame, initTimeline} from './timeline.js';
+import {clampFrame, initTimeline, setRepaint} from './timeline.js';
 import {initHistory, redo, undo} from './history.js';
 import {applyDesign, autogrow, buildEyes, markFilled, setHl, syncGuides, syncHints, syncMirror, ta, updateFabLabel} from './ui.js';
 import {buildShowChips, initEasePickers, initPresetPicker, loadPresets, syncAllControls, syncBezBtn, syncCounts, syncDesignBtn, syncEaseBtn} from './panels.js';
@@ -27,6 +27,7 @@ initEasePickers();
 /* picking a saved curve implies Custom ease; keep the ease button honest */
 setEaseHook(()=>{syncEaseBtn();applyDesign();});
 initGraph();
+setRepaint(draw);
 initTimeline();
 buildShowChips();
 buildEyes();

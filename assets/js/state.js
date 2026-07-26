@@ -17,6 +17,14 @@ export function syncVH(){
      between the nav bar and the keyboard. */
   if(root.style.getPropertyValue("--vh")!==h+"px")root.style.setProperty("--vh",h+"px");
   if(root.style.getPropertyValue("--vvTop")!==top+"px")root.style.setProperty("--vvTop",top+"px");
+  /* Dismissing the keyboard with its own close button does not blur the field, so
+     focusout never fires and the canvas would stay a strip with the grip looking
+     dead. The viewport growing back is the only reliable signal that it is gone. */
+  if(root.dataset.kb==="1"&&vv&&window.innerHeight-vv.height<KB_MIN){
+    const el=document.activeElement;
+    if(isTextField(el))el.blur();
+    setEditing(false);
+  }
   scheduleDraw();
 }
 /* Editing state drives the mobile canvas strip. Focus is the reliable signal —
@@ -26,6 +34,9 @@ export function syncVH(){
    range also takes focus when tapped, and treating those as "editing" collapsed
    the canvas on every toggle — which expanded the editor and, because the strip
    height was !important, made the drag grip look dead. */
+/* Below this much missing viewport height, no keyboard is up. Browser chrome and
+   URL bars move by less than this; a keyboard is always far more. */
+const KB_MIN=110;
 const KB_TYPES={text:1,search:1,url:1,email:1,tel:1,number:1,password:1};
 export function isTextField(el){
   if(!el||!el.tagName)return false;

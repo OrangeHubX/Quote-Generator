@@ -208,6 +208,7 @@ export const RELEVANT={
   curveInfo:   x=>S.anim||S.hlAnim,
   motionAdv:   x=>S.anim,                          /* nothing to shape otherwise */
   customRow:   x=>S.anim&&S.scaleEase==="custom",
+  editCurveRow:x=>S.anim&&S.scaleEase!=="custom"&&S.scaleEase!=="none",
   sFromRow:    x=>S.anim&&S.scaleEase!=="none",    /* no scale, nothing to scale from */
   overRow:     x=>S.anim&&(S.scaleEase==="back"||S.scaleEase==="spring"),
   hlAnimRow:   x=>S.hlAnim,

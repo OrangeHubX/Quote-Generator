@@ -45,10 +45,24 @@ just to notify, the callee registers a hook instead: `graph.js` calls
 
 ## Notes
 
+**The stage is three fixed bands.** A tool bar, the artwork, then the frame
+ruler — only the middle band resizes. The tools used to float *over* the canvas
+and the ruler was pinned to its bottom edge, so switching between card and
+full-frame zoom moved both, and the buttons sat on top of the card. The canvas is
+now sized from `.cwrap`'s own box (`flex:1; min-height:0; overflow:hidden`), which
+means there is no chrome to subtract and no feedback loop: the bands size the
+canvas, never the reverse.
+
 **Mobile keyboard.** Every mobile height derives from `--vh`, which tracks the
 *visual* viewport. Never use static `vh` for layout heights — that is what let
 the keyboard push fields out of view. While a field is focused, `data-kb="1"` on
 `<html>` collapses the canvas to a short live strip so the field stays visible.
+
+Dismissing the keyboard with its own close button does **not** blur the field, so
+`focusout` never fires. Without a second signal the strip stayed collapsed and the
+drag grip looked dead until you tapped an empty area. `syncVH()` treats the visual
+viewport growing back to within `KB_MIN` of the window as the keyboard closing,
+and blurs the field itself.
 
 **Hiding elements.** `S.hidden` is a map of element keys that are not drawn;
 `V_ON(key)` tests it and the layout closes the gap, so hiding the avatar or the
@@ -94,6 +108,21 @@ click meant for the row.
 always present: select a phrase and hit Highlight, or tap a chip for a word.
 Treating them as alternatives left the phone with no text field at all, since
 forcing tap mode there hid the box the textarea lived in.
+
+**The playhead owns the preview, so moving it must repaint.** `setFrame()` used
+to redraw only the ruler canvas, which left the card showing an old frame until
+some unrelated event repainted it. And `play()` set `R.playing` without calling
+`draw()` — the rAF loop lives *inside* `draw()`, so nothing started it. Both go
+through a `repaint` hook that `boot.js` points at `draw()`. It has to be `draw()`
+rather than `scheduleDraw()`: the scheduler deliberately no-ops while playing,
+since the loop is what advances the frames.
+
+**Getting to a draggable curve.** A built-in shape has no control points, so the
+graph shows no handles — and after the ease and curve pickers merged there was
+nothing saying how to get some. The picker's second group is labelled *Editable
+curves*, and *Make this curve editable* converts the current shape to its nearest
+bezier (`MODE_CURVE`) so you keep the curve you were looking at instead of being
+reset.
 
 **Timing is frame counts at the selected frame rate.** `S.dur`, `S.hold`,
 `S.hlOffset` and `S.hlDur` are frames, so 15f is 15 frames at 24, 30 or 60fps

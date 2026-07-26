@@ -144,6 +144,9 @@ function bindPop(hostSel,btnSel,popSel,build,pick){
    "Custom bezier" is a mode — it was three levels deep behind Curves > Scale >
    Custom bezier > Curve, which is no place for the first thing you choose. */
 const EASE_MODES=[["back","Overshoot"],["spring","Spring"],["smooth","Smooth"],["none","No scale"]];
+/* The nearest cubic bezier to each built-in shape, so "make this editable" hands
+   you the curve you were already looking at rather than resetting it. */
+const MODE_CURVE={back:[.34,1.56,.64,1],spring:[.5,1.8,.5,1],smooth:[.22,.61,.36,1]};
 function easeLabel(){
   const row=EASE_MODES.find(m=>m[0]===S.scaleEase);
   if(row)return row[1];
@@ -180,7 +183,7 @@ function buildMotionPop(){
   }
   const all=allBez(),nb=builtinCount(),at=S.scaleEase==="custom"?matchBez():-1;
   all.forEach((row,i)=>{
-    if(i===0)head("Curves");
+    if(i===0)head("Editable curves");
     if(i===nb)head("Saved");
     const b=opt(i===at,row[0],cubicThumb(row[1]));
     b.dataset.curve=String(i);
@@ -207,6 +210,14 @@ export function initEasePickers(){
   });
   syncEaseBtn();
 }
+$("#makeCustom").addEventListener("click",()=>{
+  const c=MODE_CURVE[S.scaleEase];
+  if(c)S.bezier=c.slice();
+  S.scaleEase="custom";
+  syncEaseBtn();applyRelevance();syncBezFields(true);
+  invalidateLayout();scheduleDraw();
+  snack("Drag either handle on the graph to shape it.");
+});
 $("#bezSave").addEventListener("click",()=>{
   if(S.scaleEase!=="custom"){snack("Shape a curve first — pick a curve or drag the graph.");return;}
   const name=(prompt("Name this curve:","My curve")||"").trim();

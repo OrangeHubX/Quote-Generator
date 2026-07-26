@@ -7,6 +7,13 @@
 import {$, R, S, SANS, clamp} from './data.js';
 import {FPS, animFrames, totalFrames} from './layout.js';
 
+/* Repainting the preview lives in curve.js, which already imports this module.
+   A hook keeps that a one-way dependency, and it has to be draw() rather than
+   scheduleDraw(): the scheduler deliberately does nothing while playing, since
+   the rAF loop inside draw() is what advances the frames. */
+let repaint=()=>{};
+export function setRepaint(fn){repaint=fn;}
+
 const PAD={l:6,r:6};
 const C={track:"#1D2027",tick:"#3A4050",ink:"#6B7183",anim:"rgba(125,147,255,.22)",
   hold:"rgba(152,160,178,.14)",wipe:"rgba(255,168,197,.30)",head:"#E7E9F0",acc:"#7D93FF"};
@@ -36,7 +43,9 @@ export function clampFrame(){
 export function setFrame(n,keepPlaying){
   if(!keepPlaying&&R.playing)stop();
   R.frame=clamp(Math.round(n),0,totalFrames()-1);
-  drawTimeline();
+  /* the whole point of scrubbing is seeing the frame — this used to redraw only
+     the ruler, so the card did not change until some unrelated event repainted it */
+  repaint();
 }
 export function step(delta){setFrame(R.frame+delta);}
 export function play(){
@@ -45,8 +54,9 @@ export function play(){
   if(R.frame>=totalFrames()-1)R.frame=0;
   R.playing=true;R.playT0=performance.now()-R.frame*1000/FPS();
   syncPlayBtn();
+  repaint();          /* kicks the rAF loop; nothing else starts it */
 }
-export function stop(){R.playing=false;syncPlayBtn();}
+export function stop(){R.playing=false;syncPlayBtn();repaint();}
 export function toggle(){R.playing?stop():play();}
 
 /* Advance the playhead from the wall clock. Called from the draw loop, which
