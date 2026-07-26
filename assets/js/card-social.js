@@ -1,5 +1,5 @@
 /* card-social.js — Social cards: icon table, avatars and one renderer per platform. */
-import {AVCOL, FW, S, SANS, V_ON, brandPal, clamp, themeKey} from './data.js';
+import {AVCOL, CHEER, CHEER_INDIGO, FW, S, SANS, V_ON, brandPal, clamp, themeKey} from './data.js';
 import {rr} from './state.js';
 import {ellip, fmtCount, measureBlock, paintBlock} from './text.js';
 
@@ -94,6 +94,88 @@ function fitXHead(c,nameFont,name,metaFont,handle,timeStr,avail,badgeW){
   return {name:n,nameW:nw,meta:h+(timeStr||"")};
 }
 
+/* ---- Twitch chat badges ---- */
+function polyPath(c,cx,cy,r,n,rot){
+  c.beginPath();
+  for(let i=0;i<n;i++){
+    const a=rot+i*2*Math.PI/n;
+    const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+    i?c.lineTo(x,y):c.moveTo(x,y);
+  }
+  c.closePath();
+}
+function starPath(c,cx,cy,r,pts,inner,rot){
+  c.beginPath();
+  for(let i=0;i<pts*2;i++){
+    const a=rot+i*Math.PI/pts, rr=(i%2)?r*inner:r;
+    const x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr;
+    i?c.lineTo(x,y):c.moveTo(x,y);
+  }
+  c.closePath();
+}
+/* A cheer badge: rounded tile plus the tier glyph. Under 200k the tile carries
+   the colour and the glyph is dark; above it the tile is indigo and the glyph
+   carries the colour. */
+export function drawCheer(c,tier,x,y,s){
+  const row=CHEER.find(t=>t[0]===tier);if(!row)return;
+  const col=row[2],cfg=row[3];
+  const tile=cfg.inv?CHEER_INDIGO:col;
+  const glyph=cfg.inv?col:"#2A2333";
+  rr(c,x,y,s,s,s*0.22);c.fillStyle=tile;c.fill();
+  const cx=x+s/2,cy=y+s/2,r=s*0.30;
+  c.fillStyle=glyph;
+  const up=-Math.PI/2;
+  if(cfg.shape==="tri")polyPath(c,cx,cy+s*0.03,r*1.08,3,up);
+  else if(cfg.shape==="diamond")polyPath(c,cx,cy,r*1.12,4,up);
+  else if(cfg.shape==="pent")polyPath(c,cx,cy,r*1.08,5,up);
+  else if(cfg.shape==="hex")polyPath(c,cx,cy,r*1.05,6,up);
+  else if(cfg.shape==="star6")starPath(c,cx,cy,r*1.15,6,0.52,up);
+  else starPath(c,cx,cy,r*1.18,8,0.55,up);
+  c.fill();
+}
+/* subscriber and moderator tiles, drawn rather than fetched */
+function drawSubBadge(c,x,y,s){
+  rr(c,x,y,s,s,s*0.22);c.fillStyle="#2CB5A0";c.fill();
+  c.fillStyle="#FFFFFF";
+  const w=s*0.52,h=s*0.30,bx=x+(s-w)/2,by=y+s*0.36;
+  c.beginPath();
+  c.moveTo(bx,by+h);c.lineTo(bx,by-h*0.5);c.lineTo(bx+w*0.25,by+h*0.2);
+  c.lineTo(bx+w*0.5,by-h*0.75);c.lineTo(bx+w*0.75,by+h*0.2);
+  c.lineTo(bx+w,by-h*0.5);c.lineTo(bx+w,by+h);
+  c.closePath();c.fill();
+}
+function drawModBadge(c,x,y,s){
+  rr(c,x,y,s,s,s*0.22);c.fillStyle="#00AD03";c.fill();
+  /* Twitch's moderator sword, pointing up-right */
+  c.save();c.translate(x+s/2,y+s/2);c.rotate(-Math.PI/4);
+  c.fillStyle="#FFFFFF";
+  const L=s*0.62,w=s*0.13;
+  c.fillRect(-w/2,-L/2,w,L*0.72);                    /* blade */
+  c.beginPath();                                     /* tip */
+  c.moveTo(-w/2,-L/2);c.lineTo(0,-L/2-s*0.09);c.lineTo(w/2,-L/2);c.closePath();c.fill();
+  c.fillRect(-s*0.20,L*0.16,s*0.40,w*0.82);          /* crossguard */
+  c.fillRect(-w*0.42,L*0.16,w*0.84,L*0.34);          /* grip */
+  c.restore();
+}
+/* total width of the badge run, so the first text line can be indented past it */
+function badgesWidth(bs,gap){
+  let n=0;
+  if(V_ON("badges")){
+    if(S.cheer&&S.cheer!=="off")n++;
+    if(S.subBadge)n++;
+    if(S.modBadge)n++;
+  }
+  return n?n*(bs+gap):0;
+}
+function drawBadges(c,x,y,bs,gap){
+  if(!V_ON("badges"))return 0;
+  let bx=x;
+  if(S.modBadge){drawModBadge(c,bx,y,bs);bx+=bs+gap;}
+  if(S.subBadge){drawSubBadge(c,bx,y,bs);bx+=bs+gap;}
+  if(S.cheer&&S.cheer!=="off"){drawCheer(c,S.cheer,bx,y,bs);bx+=bs+gap;}
+  return bx-x;
+}
+
 const SCFG={
   "x-post":        {brand:"x",     variant:"x",    reply:false},
   "x-reply":       {brand:"x",     variant:"x",    reply:true},
@@ -103,11 +185,15 @@ const SCFG={
   "fb-post":       {brand:"fb",    variant:"fbpost"},
   "fb-comment":    {brand:"fb",    variant:"fbcom"},
   "ig-post":       {brand:"ig",    variant:"igpost"},
-  "ig-comment":    {brand:"ig",    variant:"igcom"}
+  "ig-comment":    {brand:"ig",    variant:"igcom"},
+  "twitch-comment":{brand:"twitch",variant:"twitch"}
 };
 
 export function layoutSocial(c,fs){
-  const cfg=SCFG[S.design],brand=cfg.brand,V=cfg.variant,pal=brandPal();
+  /* a design with no renderer config would throw deep inside paint; fall back to
+     the closest thing instead so the canvas keeps working */
+  const cfg=SCFG[S.design]||SCFG["x-post"];
+  const brand=cfg.brand,V=cfg.variant,pal=brandPal();
   const cardW=Math.round(FW*(S.width/100));
   const noAv=!V_ON("avatar");        /* hidden avatar gives its gutter back */
   const noAct=!V_ON("actions");      /* hidden action row closes the footer */
@@ -200,6 +286,26 @@ export function layoutSocial(c,fs){
     L.actTop=L.bodyTop+L.bodyH+Math.round(fs*0.5);L.actH=noAct?0:Math.round(fs*1.2);
     L.cardH=Math.max(noAct?L.bodyTop+L.bodyH:L.actTop+L.actH,pad+av)+pad*0.7;
   }
+  else if(V==="twitch"){
+    /* Chat is one flowing line: badges, then the coloured name and colon, then
+       the message wrapping underneath. The first-line indent handles that. */
+    const pad=Math.round(fs*0.85);
+    L.pad=pad;L.bodyX=pad;L.bodyW=cardW-pad*2;
+    L.bs=Math.round(fs*0.92);L.bgap=Math.round(fs*0.16);
+    L.replyH=(S.sub&&S.sub.trim())?Math.round(fs*1.35):0;
+    L.headTop=pad;
+    L.bodyTop=pad+L.replyH;
+    c.font="700 "+fs+"px "+SANS;
+    L.nameTxt=V_ON("handle")?((S.handle||"username")+":"):"";
+    L.nameW=L.nameTxt?c.measureText(L.nameTxt+" ").width:0;
+    L.timeTxt=(S.time&&V_ON("time"))?S.time+" ":"";
+    c.font=Math.round(fs*0.82)+"px "+SANS;
+    L.timeW=L.timeTxt?c.measureText(L.timeTxt).width:0;
+    L.indent=L.timeW+badgesWidth(L.bs,L.bgap)+L.nameW;
+    const mb=measureBlock(c,S.text,S.ranges,L.bodyW,fs,SANS,L.bodyLh,"",L.indent);
+    L.lines=mb.lines;L.bodyH=mb.h;
+    L.cardH=L.bodyTop+L.bodyH+pad;
+  }
   else {  /* reddit + youtube */
     const title=(V==="rpost");
     const pad=Math.round(fs*0.9),av=noAv?0:(title?Math.round(fs*1.75):Math.round(fs*2.0)),gap=noAv?0:Math.round(fs*0.5);
@@ -239,6 +345,7 @@ export function paintSocial(c,L,A){
   else if(V==="fbcom")paintFbComment(c,L,hp);
   else if(V==="igpost")paintIgPost(c,L,hp);
   else if(V==="igcom")paintIgComment(c,L,hp);
+  else if(V==="twitch")paintTwitch(c,L,hp);
   else paintRedditYt(c,L,hp);
   c.restore();
 }
@@ -514,6 +621,35 @@ function paintIgComment(c,L,hp){
       c.fillText(lc,hcx,hy+iS+fs*0.68);c.textAlign="left";
     }
   }
+}
+
+/* ---- Twitch chat ---- */
+function paintTwitch(c,L,hp){
+  const X=L.x,Y=L.y,fs=L.fs,pal=L.pal,pad=L.pad;
+  /* optional reply context, as Twitch shows above a threaded reply */
+  if(L.replyH){
+    const ry=Y+pad+fs*0.9,gs=Math.round(fs*0.82);
+    c.fillStyle=pal.sub;
+    drawIcon(c,"fbComment",X+pad,ry-gs*0.82,gs,pal.sub);
+    c.font=Math.round(fs*0.82)+"px "+SANS;
+    const lead="Replying to @"+(S.sub||"user").replace(/^@/,"");
+    c.fillText(ellip(c,lead,L.bodyW-gs-fs*0.3),X+pad+gs+fs*0.28,ry);
+  }
+  /* badges + name sit on the first line; the message flows around them */
+  const base=Y+L.bodyTop+fs*0.82;
+  let bx=X+L.bodyX;
+  if(L.timeTxt){
+    c.font=Math.round(fs*0.82)+"px "+SANS;c.fillStyle=pal.sub;
+    c.fillText(L.timeTxt,bx,base);bx+=L.timeW;
+  }
+  bx+=drawBadges(c,bx,base-L.bs*0.82,L.bs,L.bgap);
+  if(L.nameTxt){
+    c.font="700 "+fs+"px "+SANS;c.fillStyle=S.nameColor||pal.accent;
+    c.fillText(L.nameTxt,bx,base);
+  }
+  paintBlock(c,{text:S.text,rs:S.ranges,lines:L.lines,x:X+L.bodyX,y:Y+L.bodyTop,
+    fs:L.bodyFs,lh:L.bodyLh,face:SANS,ink:pal.ink,hlColor:S.hlColor,hlStyle:S.hlStyle,
+    hp,indent:L.indent});
 }
 
 /* ---- Reddit + YouTube ---- */

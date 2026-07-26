@@ -1,11 +1,11 @@
 /* ui.js — All DOM wiring: text fields, sliders, segmented groups, tabs, presets, design switching. */
 import {$, METRICS, OUTLETS, R, RELEVANT, S, clamp, ctx, cv, d, isPhone} from './data.js';
-import {KB_SEL, scheduleDraw} from './state.js';
+import {isTextField, scheduleDraw} from './state.js';
 import {bridge, covered, remap, setRanges, subtract, trimEdges} from './text.js';
 import {invalidateLayout} from './layout.js';
 import {allBez, draw, drawCurve, loadBez, refreshBezSelect, saveBez} from './curve.js';
 import {snack} from './export.js';
-import {buildShowChips} from './panels.js';
+import {buildShowChips, syncTwitch} from './panels.js';
 
 /* ---------- tap to highlight ---------- */
 export function syncWords(){
@@ -140,7 +140,7 @@ document.addEventListener("keydown",e=>{
    (setEditing in state.js handles the strip itself) */
 document.addEventListener("focusin",e=>{
   if(!isPhone()||R.viewPinned)return;
-  if(e.target.matches&&e.target.matches(KB_SEL)&&S.view!=="card"){S.view="card";setViewChip();scheduleDraw();}
+  if(isTextField(e.target)&&S.view!=="card"){S.view="card";setViewChip();scheduleDraw();}
 });
 
 /* ---------- social text inputs ---------- */
@@ -390,6 +390,7 @@ export function applyDesign(){
     if(subLbl)subLbl.textContent=(S.design==="x-reply")?"Replying to @":"Subreddit";
     $("#handleLabel").textContent=(brand==="reddit")?"u/username":(brand==="yt")?"@channel":(brand==="ig")?"username":"@handle";
     buildMetrics();buildShowChips();
+    if(brand==="twitch")syncTwitch();
     /* push state into the identity controls */
     ["name","handle","sub","time","audio","mediaSrc"].forEach(id=>{const el=$("#"+id);if(el)el.value=S[id]||"";});
     $("#badge").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===S.badge)));

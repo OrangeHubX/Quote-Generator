@@ -28,12 +28,13 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 /* ============ shell ============ */
 .app{display:grid;grid-template-columns:1fr 366px;height:100dvh;height:var(--vh,100dvh);overflow:hidden}
 @media (max-width:900px){
-  /* The layout viewport already shrinks for the keyboard (see the viewport
-     meta), so 100% is exactly the visible area. The body takes the nav bar
-     colour so that if a browser ignores that flag, any residual strip below the
-     bar reads as part of it instead of a black gap. */
+  /* --vh tracks the visual viewport, so the shell covers exactly the visible
+     area whether or not the browser shrinks the layout viewport for the
+     keyboard. html/body carry the nav bar colour so even a rounding-sized
+     sliver behind the shell is invisible rather than a black band. */
   html,body{height:100%;background:var(--sub-panel);overflow:hidden}
-  .app{height:100%;max-height:100%}
+  .app{position:fixed;left:0;right:0;top:var(--vvTop,0px);
+       height:var(--vh,100%);max-height:var(--vh,100%)}
 }
 
 /* ---- canvas stage ---- */
@@ -241,6 +242,17 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .combo-opt[aria-selected=true]{background:var(--acc-soft);color:var(--acc);font-weight:600}
 .combo-opt .cd{width:7px;height:7px;border-radius:50%;flex:none}
 
+/* ---- cheer badge picker ---- */
+.cheerpick{position:relative;flex:1;min-width:0}
+.cheer-sw{width:16px;height:16px;border-radius:4px;flex:none;background:var(--input-hi);
+  display:grid;place-items:center}
+.cheer-sw canvas{display:block;width:16px;height:16px}
+.cheer-opt{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;
+  border-radius:5px;padding:5px 8px;cursor:pointer;color:var(--fg);font-size:12.5px;text-align:left}
+.cheer-opt:hover{background:var(--input-hi)}
+.cheer-opt[aria-selected=true]{background:var(--acc-soft);color:var(--acc);font-weight:600}
+.cheer-opt canvas{display:block;width:20px;height:20px;flex:none}
+
 /* ---- caption action button ---- */
 .cap-btn{background:none;border:0;color:var(--acc);font-size:10.5px;font-weight:700;
   letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:2px 4px;border-radius:4px;
@@ -299,7 +311,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
   .app[data-sheet=full] .stage .tools,
   .app[data-sheet=full] .stage .readout{display:none}
   /* while a field is focused the canvas becomes a short live strip */
-  :root[data-kb="1"] .stage{height:96px!important;padding:6px 12px 2px;gap:0}
+  :root[data-kb="1"] .stage{height:96px;padding:6px 12px 2px;gap:0}
   :root[data-kb="1"] .stage .tools,
   :root[data-kb="1"] .stage .readout{display:none}
 

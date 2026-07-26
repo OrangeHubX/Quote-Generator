@@ -8,13 +8,31 @@ import {draw} from './curve.js';
    it. Static vh units must not be used for layout heights. */
 export function syncVH(){
   const vv=window.visualViewport;
+  const root=document.documentElement;
   const h=Math.round(vv?vv.height:window.innerHeight);
-  document.documentElement.style.setProperty("--vh",h+"px");
+  const top=Math.round(vv?vv.offsetTop:0);
+  /* Size the shell to the *visual* viewport rather than trusting the layout
+     viewport to shrink. That holds whether or not the browser honours
+     interactive-widget=resizes-content, so no strip of page can ever show
+     between the nav bar and the keyboard. */
+  if(root.style.getPropertyValue("--vh")!==h+"px")root.style.setProperty("--vh",h+"px");
+  if(root.style.getPropertyValue("--vvTop")!==top+"px")root.style.setProperty("--vvTop",top+"px");
   scheduleDraw();
 }
 /* Editing state drives the mobile canvas strip. Focus is the reliable signal —
-   some browsers resize the layout viewport for the keyboard and some don't. */
-export const KB_SEL="input:not([type=file]):not([type=color]),textarea";
+   some browsers resize the layout viewport for the keyboard and some don't.
+
+   Only fields that actually raise a keyboard may count. A checkbox, radio or
+   range also takes focus when tapped, and treating those as "editing" collapsed
+   the canvas on every toggle — which expanded the editor and, because the strip
+   height was !important, made the drag grip look dead. */
+const KB_TYPES={text:1,search:1,url:1,email:1,tel:1,number:1,password:1};
+export function isTextField(el){
+  if(!el||!el.tagName)return false;
+  if(el.tagName==="TEXTAREA")return true;
+  if(el.tagName!=="INPUT")return false;
+  return !!KB_TYPES[(el.getAttribute("type")||"text").toLowerCase()];
+}
 function setEditing(on){
   const root=document.documentElement;
   const v=on?"1":"0";
@@ -26,17 +44,13 @@ function setEditing(on){
   setEditing._t=setTimeout(scheduleDraw,220);
 }
 document.addEventListener("focusin",e=>{
-  if(e.target.matches&&e.target.matches(KB_SEL)){
-    setEditing(true);
-    /* let the strip collapse first, then bring the field into view */
-    setTimeout(()=>{try{e.target.scrollIntoView({block:"center",behavior:"smooth"});}catch(_){}},210);
-  }
+  if(!isTextField(e.target))return;
+  setEditing(true);
+  /* let the strip collapse first, then bring the field into view */
+  setTimeout(()=>{try{e.target.scrollIntoView({block:"center",behavior:"smooth"});}catch(_){}},210);
 });
 document.addEventListener("focusout",()=>{
-  setTimeout(()=>{
-    const a=document.activeElement;
-    if(!(a&&a.matches&&a.matches(KB_SEL)))setEditing(false);
-  },80);
+  setTimeout(()=>{if(!isTextField(document.activeElement))setEditing(false);},80);
 });
 if(window.visualViewport){
   window.visualViewport.addEventListener("resize",syncVH);

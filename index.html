@@ -114,6 +114,27 @@
             <label class="sw"><input type="checkbox" id="follow" checked><span class="tr"></span></label></div>
           <div class="row rowsw" id="likeRow"><span class="rl">Liked<small>Fills the heart</small></span>
             <label class="sw"><input type="checkbox" id="likeOn"><span class="tr"></span></label></div>
+
+          <!-- twitch chat -->
+          <div id="twitchCard">
+            <div class="row"><label>Name colour</label>
+              <div class="sw-grid" id="nameColor"></div>
+            </div>
+            <div class="row"><label for="cheer">Cheer badge</label>
+              <div class="cheerpick" id="cheerPick">
+                <button class="combo-btn" id="cheerBtn" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="cheer-sw" id="cheerSw"></span>
+                  <span class="combo-val" id="cheerVal">Off</span>
+                  <svg class="combo-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="combo-pop" id="cheerPop" role="listbox"></div>
+              </div>
+            </div>
+            <div class="row rowsw"><span class="rl">Subscriber badge</span>
+              <label class="sw"><input type="checkbox" id="subBadge" checked><span class="tr"></span></label></div>
+            <div class="row rowsw"><span class="rl">Moderator badge</span>
+              <label class="sw"><input type="checkbox" id="modBadge"><span class="tr"></span></label></div>
+          </div>
         </div>
 
         <!-- element visibility -->
