@@ -26,6 +26,7 @@ assets/js/
   history.js            undo / redo over the whole editable state
   export.js             zip writer, GIF encoder, single-card export paths
   batch.js              queue several cards, export as one zip of folders
+  paste.js              the paste-an-image dialog shared by both image slots
   ui.js                 DOM wiring: fields, sliders, segmented groups, tabs
   panels.js             comboboxes, show/hide chips, saved presets and curves
   sheet.js              draggable editor sheet (mobile)
@@ -238,6 +239,27 @@ drift off the words.
 **Highlight mode.** Mobile forces **Tap words** and hides the selector:
 dragging a text selection inside a sheet that also pans is fragile, and tapping
 chips is faster. Desktop keeps both.
+
+**Getting an image in.** Four routes, all ending at the same decoder: the file
+picker, a drag onto the row, and — through the paste dialog — a `paste` event or
+`navigator.clipboard.read()`. `ui.js` registers each slot's `accept()` with
+`registerSink()`, so `paste.js` never needs to know how an image is decoded or
+which state key it lands in.
+
+The dialog's drop zone is `contenteditable`. That is not decoration: a browser
+only fires `paste` at an editable target, and on a phone — where there is no
+Ctrl+V — an editable element is also the only thing that offers the OS Paste menu
+on a long press. The instruction text is chosen per device for the same reason.
+
+A copied **link** is refused deliberately. Drawing a remote image taints the
+canvas, and a tainted canvas throws on `toBlob()` and `getImageData()` — so PNG,
+JPEG and GIF export would all fail at the moment of export rather than at the
+moment of pasting. A `data:` URL is same-origin and is accepted, which covers most
+screenshot tools.
+
+Closing the dialog restores focus on a timer, not synchronously: dismissing it by
+pressing the backdrop means the browser is still going to move focus after the
+handler returns, which would leave focus on `<body>`.
 
 **Images.** `drawFitted()` covers the box first, then applies zoom and pan. Zoom
 starts at 100% = exact cover, so the pan clamps to the resulting slack and an
