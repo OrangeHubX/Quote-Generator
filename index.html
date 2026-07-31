@@ -123,6 +123,8 @@
           <div class="drop" id="avatarDrop" role="button" tabindex="0" aria-label="Choose a profile picture">
             <span class="th" id="avatarThumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span>
             <span class="lb">Profile picture<small id="avatarName">Optional — a coloured initial is used</small></span>
+            <button type="button" class="x pst" id="avatarPaste" aria-label="Paste an image"
+                    title="Paste or drop an image"><svg viewBox="0 0 24 24"><path d="M9 3.5h6V6H9zM8.5 5H6v15h12V5h-2.5"/></svg></button>
             <button type="button" class="x hide" id="avatarClear" aria-label="Remove">&times;</button>
             <input type="file" id="avatarFile" accept="image/*">
           </div>
@@ -180,6 +182,8 @@
           <div class="drop" id="mediaDrop" role="button" tabindex="0" aria-label="Choose an image">
             <span class="th" id="mediaThumb"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-4 4 3 3-2 4 3"/></svg></span>
             <span class="lb">Attached image<small id="mediaName">Shown inside the post</small></span>
+            <button type="button" class="x pst" id="mediaPaste" aria-label="Paste an image"
+                    title="Paste or drop an image"><svg viewBox="0 0 24 24"><path d="M9 3.5h6V6H9zM8.5 5H6v15h12V5h-2.5"/></svg></button>
             <button type="button" class="x hide" id="mediaClear" aria-label="Remove">&times;</button>
             <input type="file" id="mediaFile" accept="image/*">
           </div>
@@ -396,6 +400,25 @@
     <button class="go" id="dlMobile" aria-label="Download"><svg viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4M4 19h16"/></svg></button>
   </nav>
 </div>
+<!-- Paste target. A contenteditable zone rather than a plain div: the OS "Paste"
+     menu only appears for an editable element, which is the only route on a phone
+     where there is no Ctrl+V. -->
+<div class="modal" id="pasteModal" hidden>
+  <div class="mdl" role="dialog" aria-modal="true" aria-labelledby="pasteTitle">
+    <h2 id="pasteTitle">Paste an image</h2>
+    <div class="pzone" id="pasteZone" contenteditable="true" role="textbox"
+         aria-labelledby="pasteTitle" spellcheck="false"
+         data-ph="Press &#8984;V, or drop an image here"></div>
+    <p class="note" id="pasteNote">Take a screenshot, copy an image from a browser,
+      or drag a file in. A copied <b>link</b> will not work &mdash; a remote image
+      blocks PNG and GIF export.</p>
+    <div class="btn-row">
+      <button class="btn" id="pasteRead">Paste from clipboard</button>
+      <button class="btn ghost" id="pasteCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="snack" id="snack"></div>
 <!-- Shown only if the module bundle never boots (e.g. opened over file://,
      where ES modules are blocked by CORS). boot.js removes it. -->

@@ -277,8 +277,13 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 .drop{position:relative}
 .drop[data-over=true]{border-color:var(--acc);background:var(--acc-soft)}
 .drop:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
-.drop .x{background:none;border:0;color:var(--fg-3);cursor:pointer;font-size:16px;padding:2px 5px;line-height:1}
-.drop .x:hover{color:var(--warn)}
+.drop .x{background:none;border:0;color:var(--fg-3);cursor:pointer;font-size:16px;padding:2px 5px;line-height:1;
+  flex:none;border-radius:4px}
+.drop .x:hover{color:var(--warn);background:var(--line)}
+.drop .x.pst{padding:4px}
+.drop .x.pst:hover{color:var(--acc)}
+.drop .x.pst svg{display:block;width:15px;height:15px;fill:none;stroke:currentColor;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
 /* word chips */
 /* Sits under the text field rather than replacing it, so it stays compact — it is
@@ -433,6 +438,29 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(-
 #batchPreview{color:var(--acc);word-break:break-all}
 #batchPreview:empty{display:none}
 .note.mono{font-family:var(--mono);font-size:10px}
+
+/* ---- paste dialog ----
+   Above the popup layer (z-index 60) so a list left open cannot cover it. */
+.modal{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:20px;
+  background:rgba(6,7,10,.72);backdrop-filter:blur(3px)}
+.modal[hidden]{display:none}
+.mdl{width:min(420px,100%);background:var(--panel);border:1px solid var(--line-2);
+  border-radius:var(--r-lg);padding:16px 16px 12px;box-shadow:0 26px 70px rgba(0,0,0,.7)}
+.mdl h2{margin:0 0 12px;font-size:14px;font-weight:650;letter-spacing:-.005em}
+.mdl .note{padding:10px 0 4px}
+.mdl .btn-row{padding:8px 0 0}
+.pzone{min-height:132px;border:1px dashed var(--line-2);border-radius:var(--r);
+  background:var(--input);padding:12px;outline:none;overflow:hidden;
+  display:grid;place-items:center;text-align:center;cursor:text;
+  color:var(--fg-2);font-size:12.5px;line-height:1.5}
+.pzone:empty::before{content:attr(data-ph);color:var(--fg-3)}
+.pzone:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+.pzone[data-over=true]{border-color:var(--acc);background:var(--acc-soft);border-style:solid}
+.pzone img{max-width:100%;max-height:110px}
+@media (max-width:900px){
+  .pzone{min-height:150px}
+  .modal{padding:14px;align-items:start;padding-top:16vh}
+}
 
 /* ---- drag grip (mobile only) ---- */
 .grip{display:none}
@@ -604,6 +632,13 @@ input[type=range]:active::-webkit-slider-thumb{transform:scale(1.25)}
 
 /* toast */
 .snack{transition:opacity .2s ease,transform .24s var(--e-snap)}
+
+/* dialog */
+@keyframes mdlIn{from{opacity:0}to{opacity:1}}
+@keyframes mdlCard{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.modal:not([hidden]){animation:mdlIn .14s ease both}
+.modal:not([hidden]) .mdl{animation:mdlCard .2s var(--e-out) both}
+.pzone{transition:border-color var(--t) ease,background var(--t) ease,box-shadow var(--t) ease}
 
 /* canvas fades in on first paint so it does not flash */
 @keyframes viewerIn{from{opacity:0}to{opacity:1}}

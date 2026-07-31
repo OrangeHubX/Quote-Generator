@@ -15,6 +15,7 @@ import {buildShowChips, initEasePickers, initPresetPicker, loadPresets, syncAllC
 import {allBez} from './graph.js';
 import {applySheet, initSheet} from './sheet.js';
 import {exportBatch, initBatch, queueLength} from './batch.js';
+import {initPaste} from './paste.js';
 
 /* the app booted, so drop the "serve over http" notice */
 const bm=document.getElementById("bootmsg");if(bm)bm.remove();
@@ -36,6 +37,7 @@ syncGuides();
 syncHints();
 initPresetPicker();
 initBatch();
+initPaste();
 applyDesign();
 syncVH();
 initSheet();
