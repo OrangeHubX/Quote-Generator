@@ -17,13 +17,29 @@ export function syncVH(){
      between the nav bar and the keyboard. */
   if(root.style.getPropertyValue("--vh")!==h+"px")root.style.setProperty("--vh",h+"px");
   if(root.style.getPropertyValue("--vvTop")!==top+"px")root.style.setProperty("--vvTop",top+"px");
+
   /* Dismissing the keyboard with its own close button does not blur the field, so
      focusout never fires and the canvas would stay a strip with the grip looking
-     dead. The viewport growing back is the only reliable signal that it is gone. */
-  if(root.dataset.kb==="1"&&vv&&window.innerHeight-vv.height<KB_MIN){
-    const el=document.activeElement;
-    if(isTextField(el))el.blur();
-    setEditing(false);
+     dead. The visual viewport growing back is the only signal that it is gone.
+
+     It has to be measured against its *own* pre-keyboard height, not against
+     window.innerHeight: this page asks for interactive-widget=resizes-content, so
+     the keyboard shrinks the layout viewport too and the gap between the two stays
+     near zero the whole time the keyboard is up. Comparing them closed the
+     keyboard the instant it opened, on every field.
+
+     And the shrink has to actually have been seen before a re-grow can mean
+     anything — focusin sets data-kb before the viewport has moved, so without
+     `sawKb` the first event after focus would look like a dismissal. */
+  if(root.dataset.kb!=="1"){
+    vvFull=h;                       /* tracks browser chrome while nothing is up */
+  }else if(vvFull){
+    if(h<vvFull-KB_MIN)sawKb=true;
+    else if(sawKb){
+      const el=document.activeElement;
+      if(isTextField(el))el.blur();
+      setEditing(false);
+    }
   }
   scheduleDraw();
 }
@@ -37,6 +53,8 @@ export function syncVH(){
 /* Below this much missing viewport height, no keyboard is up. Browser chrome and
    URL bars move by less than this; a keyboard is always far more. */
 const KB_MIN=110;
+let vvFull=0;      /* visual viewport height with nothing covering it */
+let sawKb=false;   /* the keyboard has actually been observed, this focus */
 const KB_TYPES={text:1,search:1,url:1,email:1,tel:1,number:1,password:1};
 export function isTextField(el){
   if(!el||!el.tagName)return false;
@@ -48,6 +66,9 @@ function setEditing(on){
   const root=document.documentElement;
   const v=on?"1":"0";
   if(root.dataset.kb===v)return;
+  /* Only on a real 0→1 transition, so moving between two fields does not forget
+     that the keyboard is already up. */
+  if(on)sawKb=false;
   root.dataset.kb=v;R.editing=on;
   scheduleDraw();
   /* the stage height animates, so re-fit the canvas once it has settled */
@@ -68,7 +89,9 @@ if(window.visualViewport){
   window.visualViewport.addEventListener("scroll",syncVH);
 }
 window.addEventListener("resize",syncVH);
-window.addEventListener("orientationchange",()=>setTimeout(syncVH,180));
+/* a rotation invalidates the baseline, so drop it rather than measure against a
+   height from the other orientation */
+window.addEventListener("orientationchange",()=>{vvFull=0;sawKb=false;setTimeout(syncVH,180);});
 
 /* ---------- draw scheduler (coalesce work into one frame) ---------- */
 let drawPending=false;

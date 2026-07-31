@@ -61,9 +61,17 @@ the keyboard push fields out of view. While a field is focused, `data-kb="1"` on
 
 Dismissing the keyboard with its own close button does **not** blur the field, so
 `focusout` never fires. Without a second signal the strip stayed collapsed and the
-drag grip looked dead until you tapped an empty area. `syncVH()` treats the visual
-viewport growing back to within `KB_MIN` of the window as the keyboard closing,
-and blurs the field itself.
+drag grip looked dead until you tapped an empty area. `syncVH()` watches the
+visual viewport for the shrink and then the re-grow, and blurs the field itself.
+
+Two details make or break that check. Measure against the viewport's **own**
+pre-keyboard height (`vvFull`), never against `window.innerHeight` — this page asks
+for `interactive-widget=resizes-content`, so the keyboard shrinks the layout
+viewport too and the gap between the two stays near zero for as long as the
+keyboard is up. Comparing them dismissed the keyboard the instant it opened, on
+every field. And the shrink has to have actually been observed (`sawKb`) before a
+re-grow can mean anything, because `focusin` sets `data-kb` before the viewport has
+moved at all.
 
 **Hiding elements.** `S.hidden` is a map of element keys that are not drawn;
 `V_ON(key)` tests it and the layout closes the gap, so hiding the avatar or the
