@@ -1,6 +1,6 @@
 /* card-social.js — Social cards: icon table, avatars and one renderer per platform. */
 import {AVCOL, CHEER, CHEER_INDIGO, FW, S, SANS, V_ON, brandPal, clamp, themeKey} from './data.js';
-import {rr} from './state.js';
+import {rr} from './paint-util.js';
 import {ellip, fmtCount, measureBlock, paintBlock} from './text.js';
 
 /* ---------- SOCIAL: platform-accurate cards ---------- */

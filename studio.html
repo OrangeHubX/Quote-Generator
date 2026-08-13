@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B0C0F">
+<title>Palm Static Studio</title>
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/studio.css">
+</head>
+<body>
+<div class="studio">
+
+  <!-- ── left: viewer over timeline ─────────────────────────────────────── -->
+  <main class="stage2">
+    <div class="tbar">
+      <button class="fab" id="home" title="Go to the start (Home)">
+        <svg viewBox="0 0 24 24"><path d="M18 5v14L7 12zM5 5v14"/></svg></button>
+      <button class="fab" id="play" aria-pressed="false" title="Play / pause (space)">
+        <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></button>
+      <span class="badge" id="tcRead">0:00:00</span>
+      <span class="sp"></span>
+      <button class="btn accent" id="paste" title="Paste a Claude shotlist or script">Paste script</button>
+      <div class="popwrap">
+        <button class="btn" id="add" title="Add an element at the playhead">Add ▾</button>
+        <div class="pop" id="addPop"></div>
+      </div>
+      <label class="btn" for="pick" title="Load gameplay, images and the voiceover">Files</label>
+      <input type="file" id="pick" multiple accept="video/*,image/*,audio/*" hidden>
+    </div>
+
+    <div class="pwrap"><canvas id="pv"></canvas></div>
+
+    <div class="tlwrap">
+      <div class="tlbar">
+        <button class="fab sm" id="zout" title="Zoom out (−)">
+          <svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button class="fab sm" id="zin" title="Zoom in (+)">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="btn sm" id="fit" title="Fit the whole sequence (F)">Fit</button>
+        <span class="sp"></span>
+        <span class="hintbar">drag to retime · edges to trim · <b>S</b> splits at the playhead · shift ignores snapping · ⌘D duplicates · ⌘Z undoes</span>
+      </div>
+      <canvas id="tl"></canvas>
+    </div>
+  </main>
+
+  <!-- ── right: inspect / media / export ────────────────────────────────── -->
+  <section class="side">
+    <div class="tabs" id="tabs">
+      <button data-tab="inspect" aria-pressed="true">Inspect</button>
+      <button data-tab="media" aria-pressed="false">Media</button>
+      <button data-tab="export" aria-pressed="false">Export</button>
+      <a class="tablink" href="index.html" title="The single-card quote and social generator">Cards ↗</a>
+    </div>
+
+    <div class="pane insp" data-pane="inspect">
+      <div id="insp"></div>
+    </div>
+
+    <div class="pane hide" data-pane="media">
+      <div class="igroup">
+        <div class="ihead">Loaded files</div>
+        <div id="mediaList" class="mlist"></div>
+        <div id="missing"></div>
+      </div>
+      <div class="igroup">
+        <div class="ihead">How this works</div>
+        <p class="ptext">Drop a gameplay clip, the voiceover and any images anywhere on
+        this page. The gameplay fills the frame and is always muted — only the
+        voiceover is heard. Images are matched to the names in the shotlist, so
+        <code>src=haaland</code> finds <code>haaland.jpg</code> whatever else is in
+        the file name.</p>
+        <p class="ptext">Select the <b>BG</b> clip to reposition the gameplay: zoom in and
+        move it when a particular part of the action should be on screen.</p>
+      </div>
+      <div class="igroup">
+        <div class="ihead">Start over</div>
+        <button class="btn wide" id="reset">Clear the timeline</button>
+      </div>
+    </div>
+
+    <div class="pane hide" data-pane="export">
+      <div class="igroup">
+        <div class="ihead">Output</div>
+        <div class="irow"><label class="ilab">Format</label>
+          <select class="ifield" id="xFmt">
+            <option value="mp4">MP4 · H.264 + AAC</option>
+            <option value="seq">PNG frames + WAV (zip)</option>
+          </select></div>
+        <div class="irow"><label class="ilab">Size</label>
+          <select class="ifield" id="xRes">
+            <option value="2160x3840">2160 × 3840 · 4K vertical</option>
+            <option value="1080x1920">1080 × 1920 · HD vertical</option>
+            <option value="3840x2160">3840 × 2160 · 4K wide</option>
+            <option value="1920x1080">1920 × 1080 · HD wide</option>
+          </select></div>
+        <div class="irow"><label class="ilab">Frame rate</label>
+          <select class="ifield" id="xFps">
+            <option value="30" selected>30</option>
+            <option value="24">24</option>
+            <option value="25">25</option>
+            <option value="60">60</option>
+          </select></div>
+        <div class="irow"><label class="ilab">Bitrate</label>
+          <input class="ifield num" id="xRate" type="number" min="1" max="200" step="1">
+          <span class="ihint">Mb/s</span></div>
+        <p class="ptext" id="xNote"></p>
+      </div>
+      <div class="igroup">
+        <div class="ihead">Render</div>
+        <button class="btn accent wide" id="render">Export the video</button>
+        <button class="btn wide hide" id="cancel">Stop</button>
+        <div class="xbar"><i id="xBar"></i></div>
+        <div class="xstat" id="xStat">Ready.</div>
+        <p class="ptext">Every frame is rendered and encoded one at a time, so a slow
+        machine takes longer rather than dropping frames. Leave the tab in front
+        while it runs.</p>
+      </div>
+      <div class="igroup">
+        <div class="ihead">Claude</div>
+        <button class="btn wide" id="spec">Copy the format spec</button>
+        <p class="ptext">Paste it into your project knowledge. Claude then ends every
+        script with a <code>shotlist</code> block that lands on this timeline in
+        one paste.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ── paste sheet ──────────────────────────────────────────────────────── -->
+<div class="modal" id="pasteWrap">
+  <div class="sheet">
+    <div class="sheeth">Paste the whole Claude answer, or just the
+      <code>shotlist</code> block</div>
+    <textarea id="pasteBox" spellcheck="false"
+      placeholder="Paste here. A shotlist block is read exactly; a plain script is read as a starting point — spoken timing gets estimated and the visual beats become notes."></textarea>
+    <div class="sheetf">
+      <button class="btn" id="pasteCancel">Cancel</button>
+      <button class="btn accent" id="pasteGo">Build the timeline</button>
+    </div>
+  </div>
+</div>
+
+<div id="snack"></div>
+<div class="dropveil">Drop to load</div>
+
+<script type="module" src="assets/js/studio/app.js"></script>
+<noscript><p style="padding:24px;color:#E7E9F0">This tool needs JavaScript.</p></noscript>
+</body>
+</html>

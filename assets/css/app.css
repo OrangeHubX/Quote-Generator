@@ -68,6 +68,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .fab svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #play svg{fill:currentColor;stroke:none}
 .fab[aria-pressed=true]{background:var(--acc);border-color:transparent;color:var(--acc-ink)}
+a.fab{text-decoration:none}
 
 /* ---- frame timeline ---- */
 .tl{flex:none;display:flex;align-items:center;gap:8px;width:100%;max-width:620px}

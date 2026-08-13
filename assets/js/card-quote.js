@@ -1,6 +1,6 @@
 /* card-quote.js — The news quote card: layout and paint. */
 import {FACES, FW, S, SANS, THEMES} from './data.js';
-import {GRAIN, rr} from './state.js';
+import {GRAIN, rr} from './paint-util.js';
 import {drawTracked, fitLabel, measureBlock, normalize, paintBlock, wrap} from './text.js';
 
 /* ---------- QUOTE layout ---------- */

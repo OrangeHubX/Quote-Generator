@@ -193,7 +193,9 @@ async function exportWebm(){
   saveBlob(new Blob(chunks,{type:mt}),baseName()+".webm");
   snack("Saved WebM — check it imports before relying on it");
 }
-$("#dl").addEventListener("click",async()=>{
+/* The studio imports this module for the zip writer and the save helper, and
+   has no export button of its own — so the wiring has to be conditional. */
+if($("#dl"))$("#dl").addEventListener("click",async()=>{
   const b=$("#dl");b.disabled=true;
   try{
     if(S.format==="still")await exportStill();

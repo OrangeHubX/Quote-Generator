@@ -74,16 +74,7 @@ window.addEventListener("orientationchange",()=>setTimeout(syncVH,180));
 let drawPending=false;
 export function scheduleDraw(){ if(drawPending||R.playing)return; drawPending=true; requestAnimationFrame(()=>{drawPending=false;draw();}); }
 
-export function rr(c,x,y,w,h,r){
-  r=Math.max(0,Math.min(r,w/2,h/2));
-  if(c.roundRect){c.beginPath();c.roundRect(x,y,w,h,r);return;}
-  c.beginPath();c.moveTo(x+r,y);
-  c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();
-}
-export const GRAIN=(function(){
-  const n=document.createElement("canvas");n.width=n.height=160;
-  const g=n.getContext("2d"),dd=g.createImageData(160,160);
-  for(let i=0;i<dd.data.length;i+=4){const v=200+Math.random()*55|0;dd.data[i]=dd.data[i+1]=dd.data[i+2]=v;dd.data[i+3]=255;}
-  g.putImageData(dd,0,0);return n;
-})();
-
+/* rr() and GRAIN moved to paint-util.js so a card renderer can have them
+   without importing the viewport, the keyboard and the redraw scheduler too.
+   Re-exported here because every existing import points at this module. */
+export {rr, GRAIN} from './paint-util.js';

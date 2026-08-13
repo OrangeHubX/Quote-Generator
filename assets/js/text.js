@@ -1,6 +1,6 @@
 /* text.js — Highlight range maths, word wrapping and the shared highlight-aware text block. */
 import {$, S, SANS} from './data.js';
-import {rr} from './state.js';
+import {rr} from './paint-util.js';
 
 /* ---------- ranges ---------- */
 export function normalize(rs){const a=rs.filter(r=>r[1]>r[0]).sort((x,y)=>x[0]-y[0]),o=[];

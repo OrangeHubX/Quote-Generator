@@ -219,7 +219,11 @@ export const RELEVANT={
 };
 
 export const $=s=>document.querySelector(s);
-export const cv=$("#preview"),ctx=cv.getContext("2d");
+/* The studio page renders cards without hosting the card editor, so there is no
+   #preview there. Falling back to a detached canvas keeps `ctx` valid as a
+   measuring context — the one thing every layout routine needs it for. */
+export const cv=$("#preview")||document.createElement("canvas");
+export const ctx=cv.getContext("2d");
 /* Mutable runtime flags live on one object: ES module imports are read-only
    bindings, so cross-module writes have to go through a property. */
 export const R={

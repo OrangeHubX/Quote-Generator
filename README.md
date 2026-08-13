@@ -1,18 +1,40 @@
-# Quote Slate
+# Quote Slate + Studio
 
-A single-page tool for building 9:16 quote and social-post graphics for YouTube
-Shorts, with motion and frame-accurate export for Premiere Pro.
+Two pages that share one set of renderers.
+
+| Page | What it makes |
+|---|---|
+| `index.html` — **Quote Slate** | one 9:16 quote or social-post graphic, with motion and frame-accurate export |
+| `studio.html` — **Studio** | a whole video: paste a script, get a timeline, export a 4K MP4 |
 
 Deployed on GitHub Pages. There is no build step, but the code is ES modules,
 so it **must be served over http** — browsers block modules on `file://`. For
 local work run `npx http-server` in this folder; opening `index.html` directly
 shows a notice explaining exactly that rather than a blank page.
 
+## Studio, in one paragraph
+
+Paste the `shotlist` block from a Claude script (see `SHOTLIST.md`) and it
+becomes a Premiere-shaped sequence: gameplay filling the frame on the BG track,
+overlays stacked on V1–V4, the read on the Script track, the voiceover on Voice.
+Drag clips to retime them, drag their edges to trim, press `S` to split the
+plate where the framing should change, and pick a different in/out animation per
+element. The gameplay is always muted and blurs and dims itself under anything
+with words on it. Export is a real 4K30 MP4 at YouTube's top recommended rate,
+encoded frame by frame rather than recorded, so a slow machine takes longer
+instead of dropping frames.
+
+Paste an ordinary Claude answer with no block and it still works, roughly: the
+read is timed from word count and the Visual beats table becomes notes on the
+Beats track. That path exists to get you started, not to be trusted.
+
 ## Layout
 
 ```
-index.html              markup only
+index.html              markup only — the card editor
+studio.html             markup only — the sequence editor
 assets/css/app.css      all styling (dark tool chrome)
+assets/css/studio.css   the studio shell, on the same tokens
 assets/js/
   data.js               frame size, typefaces, card themes, outlets, palettes
   state.js              editable state, viewport sizing, redraw scheduler
@@ -29,7 +51,23 @@ assets/js/
   ui.js                 DOM wiring: fields, sliders, segmented groups, tabs
   panels.js             comboboxes, show/hide chips, saved presets and curves
   sheet.js              draggable editor sheet (mobile)
+  paint-util.js         rr() and GRAIN — no dependencies, so cards can be drawn
+                        on a page that has no card editor
   boot.js               entry point — the only script index.html loads
+assets/js/studio/
+  parse.js              the shotlist grammar, plus the plain-prose fallback
+  spec.js               the format spec Claude is given (SHOTLIST.md comes from it)
+  model.js              sequence, tracks, clips, split/duplicate, undo
+  media.js              the media pool: images, plates, audio, loose name matching
+  anim.js               in/out presets and the plate blur/dim ramp
+  elements.js           text, stamp, list, lower third, image, caption
+  card.js               a quote/social card as a timeline element
+  draw.js               the compositor — one function paints one frame
+  timeline.js           tracks, clips, trimming, scrubbing, snapping
+  inspector.js          controls for whatever is selected
+  output.js             audio mixing, plate parking, MP4 and frame exports
+  mp4.js                H.264/AAC encoding and the MP4 muxer
+  app.js                entry point — the only script studio.html loads
 ```
 
 `boot.js` is the entry; everything else is reached through imports. A few
@@ -248,7 +286,92 @@ they were drawn straight into a square box.
 flags that several modules write (`playing`, `editing`, `lastText`, …) live as
 properties on the exported `R` object in `data.js`.
 
+## Studio notes
+
+**One paste, one format, one source of truth.** The grammar lives in
+`parse.js`, the instructions Claude is given live in `spec.js`, and
+`SHOTLIST.md` is generated from `spec.js` — so the "Copy format spec" button
+cannot hand out a format the parser does not read. Chat clients rewrite
+punctuation on the way out, so `tidy()` normalises en dashes, curly quotes and
+non-breaking spaces before anything tries to match: an en dash silently killing
+every time range is the failure you would spend an hour on.
+
+There is no `\Z` in JavaScript. The prose fallback used
+`(?=^#+\s|\Z)` to mean "next heading or end of input", and under `/i` that
+matched the letter *z* — the read stopped inside the name "Jynxzi". The section
+is now taken whole and cut at the next heading in a second step, which is
+longer and cannot be read as something it isn't.
+
+**The preview is not the exporter, deliberately.** Playback runs the plate as a
+real `<video>` at real speed and draws at whatever size the window allows,
+because a preview that insists on being frame-exact at 4K is a preview nobody
+can scrub. The exporter parks the same plate one frame at a time at full size
+and pushes it through the same `renderFrame()`. Nothing about the picture can
+differ between them except resolution, and a slow machine produces a slower
+export rather than a dropped frame — which is the whole reason this does not
+use `MediaRecorder`.
+
+**Blur is done small.** A 40px blur across a 2160-wide frame costs tens of
+milliseconds per frame; the same look comes from a 9px blur on a 480-wide copy
+scaled back up, because the upscale does the last of the work. The radius is
+authored against a 1080 short edge and converted twice — into frame pixels, then
+into the small canvas — so the blur is the same *look* at every export size.
+The upscale overdraws by the blur radius, or the softened edge shows the frame's
+own border.
+
+**Contrast is a property of the overlay, not a keyframe.** Every visual clip
+carries `blur` and `dim` flags; `plateEffect()` takes the strongest request from
+whatever is up and ramps it over `blurRamp` frames. So the gameplay softens
+because something readable arrived, and hardens when it leaves, without anyone
+animating anything. A lower third that runs the whole video is the one case that
+must switch both off, which is why the shotlist example says so out loud.
+
+**Splitting the plate is how you reframe it.** One gameplay take usually needs
+different framing at different moments. `S` razors the clip at the playhead and
+the tail keeps playing the same source from the same point, so a split changes
+zoom and pan without changing what is on screen. The tail's entrance animation
+is cleared on the way — replaying it would flash.
+
+**Cards are borrowed, not rebuilt.** A CARD clip lends the module-level `S` to
+the existing card renderers and hands it straight back in a `finally`, so a
+throw cannot leave the card editor on the other page wearing this clip's text.
+The result is cached per card, so a 900-frame export pays for each card once.
+Getting there needed `rr()` and `GRAIN` moved out of `state.js` into
+`paint-util.js`: a renderer that wanted a rounded rectangle was dragging the
+viewport, the keyboard handling and the redraw scheduler in behind it.
+
+**The muxer.** WebCodecs returns encoded chunks, not a file, so `mp4.js` writes
+the MP4: `moov` in front of `mdat` (faststart), video timescale equal to the
+frame rate with every sample exactly one tick long, and samples interleaved in
+one-second chunks rather than two giant runs. Integer sample durations cannot
+drift, which is the point of rendering deterministically in the first place.
+`stco` is 32-bit, so `finalize()` refuses past 4GB rather than writing wrapped
+offsets — about twelve minutes at the 4K rate.
+
+**Bitrate follows YouTube's own table.** 45 Mb/s for 2160p30, 16 for 1440p30,
+8 for 1080p30, doubled-ish above 34fps. The top of the published range is what
+"max recommended" means; going past it does not survive the re-encode, it only
+makes the upload slower.
+
+**Timing is seconds, not frames.** A sequence outlives the frame rate it was
+pasted at, so clip times are seconds everywhere and only become frames at the
+edges — the ruler and the encoder. Animation *lengths* are the exception and are
+counted in frames, so retiming a clip never stretches its entrance.
+
 ## Export
+
+### Studio
+
+| Format | Use |
+|---|---|
+| MP4 · H.264 + AAC | Upload. 4K30 at 45 Mb/s by default; the voiceover is mixed in |
+| PNG frames + WAV (zip) | Any browser without a `VideoEncoder`. Import frame `_00000` with **Image Sequence** ticked and drop the WAV at 00:00 |
+
+MP4 export needs WebCodecs — Chrome, Edge or a recent Safari. The panel says so
+when the browser cannot do it, and frames remain a complete route to the same
+result.
+
+### Quote Slate
 
 | Format | Alpha | Use |
 |---|---|---|
@@ -272,6 +395,25 @@ shorts-ep12.zip
 ```
 
 ## Keyboard
+
+### Studio
+
+| Key | Action |
+|---|---|
+| `Space` | Play / pause |
+| `←` `→` | Step one frame (`Shift` for ten) |
+| `Home` `End` | First / last frame |
+| `S` | Split the selected clip — or the plate — at the playhead |
+| `⌘D` / `Ctrl+D` | Duplicate the selected clip |
+| `Delete` | Remove the selected clip |
+| `F` | Fit the whole sequence in the timeline |
+| `+` `−` | Zoom the timeline (`⌘`/`Ctrl` + wheel zooms around the pointer) |
+| `⌘Z` / `Ctrl+Z` | Undo (`Shift` to redo) |
+| `⌘⏎` / `Ctrl+⏎` | Export |
+
+Hold `Shift` while dragging a clip to ignore snapping.
+
+### Quote Slate
 
 | Key | Action |
 |---|---|
