@@ -296,3 +296,17 @@ body.dropping .dropveil{display:grid}
 .cue:hover{background:rgba(255,142,126,.16);color:var(--fg)}
 .cue:last-of-type{margin-bottom:2px}
 @media (max-width:900px){.cue{padding:11px 12px;font-size:12.5px}}
+
+/* ---- format spec sheet ----
+   Read-only and monospaced: it is a document to take away, not a field to edit.
+   The buttons wrap rather than shrink, so the primary action keeps its size on
+   a narrow phone instead of becoming a sliver. */
+#specBox{flex:1;min-height:300px;border:0;background:var(--bg);color:var(--fg-2);
+  padding:12px 14px;font-family:var(--mono);font-size:11px;line-height:1.55;
+  resize:none;white-space:pre-wrap}
+#specBox:focus{outline:none}
+#specWrap .sheetf{flex-wrap:wrap}
+@media (max-width:900px){
+  #specBox{min-height:180px;font-size:10.5px;padding:10px 12px}
+  #specWrap .sheetf .btn{flex:1;min-width:74px;height:40px;min-height:40px}
+}

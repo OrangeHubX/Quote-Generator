@@ -281,6 +281,22 @@ function openPaste(){
   $("#pasteWrap").classList.add("on");
   setTimeout(()=>$("#pasteBox").focus(),40);
 }
+/* Select the whole of a read-only textarea, including on iOS, where `select()`
+   on a readonly field does nothing and the field has to be made writable for
+   the length of the call. Selection is the fallback that always works: even
+   with no clipboard API and no share sheet, a long-press offers Copy. */
+function selectAll(el){
+  el.focus();
+  const ro=el.readOnly;
+  try{
+    el.readOnly=false;
+    el.setSelectionRange(0,el.value.length);
+  }catch(_){try{el.select();}catch(__){}}
+  el.readOnly=ro;
+  /* Selecting to the end scrolls to the end, which shows the last line of the
+     worked example instead of what the document is. Put it back. */
+  el.scrollTop=0;
+}
 function closePaste(){$("#pasteWrap").classList.remove("on");}
 $("#paste").addEventListener("click",openPaste);
 $("#pasteCancel").addEventListener("click",closePaste);
@@ -306,12 +322,56 @@ $("#pasteGo").addEventListener("click",()=>{
     (res.warnings.length?" · "+res.warnings[0]:""));
   if(res.warnings.length>1)console.log("Import notes:\n"+res.warnings.join("\n"));
 });
-$("#spec").addEventListener("click",async()=>{
-  try{await navigator.clipboard.writeText(SPEC);toast("Format spec copied — paste it into your Claude project knowledge");}
-  catch(_){
-    $("#pasteBox").value=SPEC;openPaste();
-    toast("Copy the spec from here into your Claude project knowledge");
-  }
+/* ---------- the format spec ----------
+   Three ways out, because no single one is available everywhere. The clipboard
+   API needs a secure context and a permission a phone may refuse; the share
+   sheet is the natural route on a phone and does not exist on a desktop; a file
+   works anywhere but is clumsy. Whichever fails, the text is on screen and
+   selected, which is the route that cannot fail. */
+const SPEC_FILE="palm-static-shotlist-format.md";
+function openSpec(){
+  const box=$("#specBox");
+  box.value=SPEC;
+  $("#specWrap").classList.add("on");
+  $("#specShare").classList.toggle("hide",!navigator.share);
+  setTimeout(()=>selectAll(box),60);
+}
+function closeSpec(){$("#specWrap").classList.remove("on");}
+async function copySpec(){
+  const box=$("#specBox");
+  selectAll(box);
+  try{
+    await navigator.clipboard.writeText(SPEC);
+    toast("Format spec copied — paste it into your Claude project knowledge");
+    return;
+  }catch(_){}
+  /* Deprecated, and still the only thing that works in a few mobile browsers. */
+  try{
+    if(document.execCommand("copy")){
+      toast("Format spec copied — paste it into your Claude project knowledge");
+      return;
+    }
+  }catch(_){}
+  toast("Couldn't reach the clipboard — the text is selected, so long-press and Copy");
+}
+$("#spec").addEventListener("click",openSpec);
+$("#specClose").addEventListener("click",closeSpec);
+$("#specWrap").addEventListener("click",e=>{if(e.target.id==="specWrap")closeSpec();});
+$("#specCopy").addEventListener("click",copySpec);
+$("#specSave").addEventListener("click",()=>{
+  saveBlob(new Blob([SPEC],{type:"text/markdown"}),SPEC_FILE);
+  toast("Saved "+SPEC_FILE);
+});
+$("#specShare").addEventListener("click",async()=>{
+  try{
+    /* Sharing a file lands in more apps than sharing raw text, but not every
+       phone accepts one — fall back to the text before giving up. */
+    const file=new File([SPEC],SPEC_FILE,{type:"text/markdown"});
+    if(navigator.canShare&&navigator.canShare({files:[file]}))
+      await navigator.share({files:[file],title:"Palm Static shotlist format"});
+    else
+      await navigator.share({title:"Palm Static shotlist format",text:SPEC});
+  }catch(_){ /* dismissing the share sheet throws; that is not an error */ }
 });
 
 /* ---------- adding clips by hand ----------
@@ -446,7 +506,7 @@ const typing=()=>{
   return a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.isContentEditable);
 };
 window.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closePaste();return;}
+  if(e.key==="Escape"){closePaste();closeSpec();return;}
   if(typing())return;
   const mod=e.metaKey||e.ctrlKey;
   if(mod&&e.key.toLowerCase()==="z"){

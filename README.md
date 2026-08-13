@@ -457,6 +457,22 @@ back the moment a clip lands on one.
 editor's keyboard handling and pulls its whole UI in behind it, and all the
 studio needs is the height.
 
+**Getting the spec off the page has three routes and one that cannot fail.**
+The Copy button used to be the only one, and when the clipboard API refused —
+which is the normal case on a phone — it fell back to dumping the spec into the
+*import* textarea and opening that sheet, whose primary button says "Build the
+timeline". One tap from replacing the sequence with its own instruction manual.
+It did not even manage that: `openPaste()` resets the box to `RT.lastPaste`, so
+the fallback opened an empty box under a message saying to copy from it.
+
+The spec now has its own sheet. Copy tries the clipboard API, then
+`execCommand`, then says plainly that it could not; Share hands it to the OS
+share sheet and only appears where one exists; Save writes a `.md`. Underneath
+all three the text is on screen and pre-selected, so a long-press offers Copy
+when nothing else works — and selection is the reason `selectAll()` briefly
+clears `readOnly`, since iOS will not select a read-only field, and the reason
+it resets `scrollTop`, since selecting to the end scrolls there.
+
 **The sequence checks its own cues.** A visual exists to show the viewer what is
 being said *while* it is being said, and arriving after the words have finished
 is the easiest mistake to make when times are written by hand — and the hardest
