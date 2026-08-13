@@ -22,6 +22,9 @@ const pv=$("#pv"),pctx=pv.getContext("2d",{alpha:false});
 const mediaHints={};
 let seekToken=0;
 const phone=()=>window.innerWidth<=900;
+/* Pointer capability, not screen size: a small window on a laptop still has a
+   mouse and a file system to drag from, and a tablet does not. */
+const touch=()=>window.matchMedia&&window.matchMedia("(hover:none)").matches;
 
 /* ---------- viewport ----------
    The same --vh trick the card page uses, rewritten here rather than imported:
@@ -61,6 +64,7 @@ export function showTab(name,openIt){
     b.setAttribute("aria-pressed",String(b.dataset.tab===name));
   for(const p of document.querySelectorAll(".pane"))
     p.classList.toggle("hide",p.dataset.pane!==name);
+  if(name==="inspect")renderInspector();
   if(name==="media")refreshMediaList();
   if(name==="export")syncRate();
   if(openIt&&phone())setSheet(true);
@@ -229,7 +233,9 @@ function refreshMediaList(){
   box.innerHTML="";
   const items=list();
   if(!items.length){
-    box.appendChild(mk("div","mempty","Drop gameplay, images and the voiceover anywhere on this page."));
+    box.appendChild(mk("div","mempty",touch()
+      ? "Nothing loaded yet. Use Choose files below to add the gameplay, the voiceover and any images."
+      : "Drop gameplay, images and the voiceover anywhere on this page, or use Choose files below."));
   }
   for(const m of items){
     const r=mk("div","mrow");
@@ -245,6 +251,10 @@ function refreshMediaList(){
     if(s&&!get(s))want.add(s);
     if(c.props.card&&c.props.card.avatar&&!get(c.props.card.avatar))want.add(c.props.card.avatar);
   }
+  const how=$("#mediaHow");
+  if(how)how.textContent=touch()
+    ? "Pick the gameplay clip, the voiceover and any images — all at once is fine."
+    : "Or drag them anywhere onto the page.";
   const miss=$("#missing");
   miss.innerHTML="";
   if(want.size){
@@ -304,6 +314,25 @@ $("#spec").addEventListener("click",async()=>{
   }
 });
 
+/* ---------- adding clips by hand ----------
+   The menu is moved to <body> before it is measured. Any scrolling ancestor
+   clips a positioned child, and the tool bar scrolls on a phone — which is how
+   the whole menu ended up unreachable there. Measuring at body level makes the
+   placement unconditional. */
+function placePop(btn,pop){
+  if(pop.parentElement!==document.body)document.body.appendChild(pop);
+  pop.style.visibility="hidden";
+  pop.classList.add("on");
+  const b=btn.getBoundingClientRect();
+  const pw=pop.offsetWidth,ph=pop.offsetHeight;
+  let top=b.bottom+6;
+  if(top+ph>window.innerHeight-8)top=Math.max(8,b.top-ph-6);
+  const left=Math.min(Math.max(8,b.left),window.innerWidth-pw-8);
+  pop.style.left=Math.round(left)+"px";
+  pop.style.top=Math.round(top)+"px";
+  pop.style.visibility="";
+}
+
 /* ---------- adding clips by hand ---------- */
 const ADDABLE=[["text","Text"],["stamp","Stamp"],["list","Name list"],["lower","Lower third"],
   ["image","Image"],["card","Quote card"],["say","Script line"],["beat","Beat note"]];
@@ -318,12 +347,21 @@ function buildAdd(){
         :type==="stamp"?{text:"WORD"}:type==="lower"?{text:"Source"}:{});
       RT.sel=clip.id;
       pop.classList.remove("on");
-      markDirty();renderInspector();repaint();
+      markDirty();repaint();
+      /* A new clip is a placeholder — "New line", "WORD" — so the next thing
+         anyone wants is the field that replaces it. On a phone that means
+         raising the sheet, not just filling a panel nobody can see. */
+      showTab("inspect",true);
     });
     pop.appendChild(b);
   }
-  $("#add").addEventListener("click",e=>{e.stopPropagation();pop.classList.toggle("on");});
+  $("#add").addEventListener("click",e=>{
+    e.stopPropagation();
+    if(pop.classList.contains("on")){pop.classList.remove("on");return;}
+    placePop($("#add"),pop);
+  });
   document.addEventListener("click",()=>pop.classList.remove("on"));
+  window.addEventListener("resize",()=>pop.classList.remove("on"));
 }
 
 /* ---------- export ---------- */
@@ -346,8 +384,14 @@ function syncRate(){
   const o=exportOpts();
   const auto=ytBitrate(o.w,o.h,o.fps)/1e6;
   $("#xRate").placeholder=String(auto);
-  $("#xNote").textContent="YouTube's top recommended rate for "+Math.min(o.w,o.h)+
-    "p"+o.fps+" is "+auto+" Mb/s"+(hasWebCodecs()?"":" · this browser has no H.264 encoder, so frames are the only route");
+  let note="YouTube's top recommended rate for "+Math.min(o.w,o.h)+"p"+o.fps+
+    " is "+auto+" Mb/s";
+  if(!hasWebCodecs())note+=" · this browser has no H.264 encoder, so frames are the only route";
+  /* Worth saying before someone starts a ten-minute render on a phone and
+     assumes it has hung. */
+  else if(touch()&&Math.min(o.w,o.h)>=2000)
+    note+=" · 4K on a phone is slow and memory-hungry — 1080p here and a re-render on a desktop is often the faster route";
+  $("#xNote").textContent=note;
 }
 ["#xRes","#xFps","#xRate"].forEach(s=>$(s).addEventListener("input",syncRate));
 $("#render").addEventListener("click",async()=>{

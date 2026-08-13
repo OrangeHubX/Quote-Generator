@@ -17,9 +17,9 @@ import {get} from './media.js';
    a variable read by a dozen call sites, so it is refreshed in one place at the
    top of every draw instead of being threaded through all of them. */
 const compact=()=>window.innerWidth<=900;
-let GUT=70;
-const RULER=24, GAP=3;
-function syncMetrics(){GUT=compact()?52:70;}
+let GUT=70, RULER=24;
+const GAP=3;
+function syncMetrics(){GUT=compact()?52:70;RULER=compact()?30:24;}
 /* Canvas font strings are not CSS: `var(--ui)` never resolves and the
    context silently keeps whatever font it had. Spell the stacks out. */
 const UI=(w,s)=>w+" "+s+'px -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,system-ui,sans-serif';
@@ -50,7 +50,8 @@ export function initTimeline(canvas,h){
   cv.addEventListener("pointerdown",onDown);
   cv.addEventListener("pointermove",onMove);
   window.addEventListener("pointerup",onUp);
-  cv.addEventListener("pointerleave",()=>{hover=null;drawTL();});
+  window.addEventListener("pointercancel",onCancel);
+  cv.addEventListener("pointerleave",()=>{if(!drag){hover=null;drawTL();}});
   cv.addEventListener("wheel",onWheel,{passive:false});
   cv.addEventListener("dblclick",onDbl);
   new ResizeObserver(()=>drawTL()).observe(cv.parentElement||cv);
@@ -263,7 +264,22 @@ function snap(t,ignoreId,off){
   return Math.max(0,best);
 }
 
-/* ---------- pointer ---------- */
+/* ---------- pointer ----------
+   Three input models share one canvas. A mouse gets hover, edge cursors and
+   ctrl+wheel zoom. A thumb gets none of those, so it gets gestures instead:
+
+     one finger on the ruler      scrub
+     one finger on a clip         move it, or trim from either end
+     one finger on empty lane     drag to pan; a tap that never moved scrubs
+     two fingers                  pinch to zoom, drag to pan (and scroll lanes)
+
+   The empty-lane case is the one that differs from the desktop, where an empty
+   click just scrubs. On a touch screen there is no scrollbar and no wheel, so
+   dragging the background has to be how you get around — and a press that never
+   moves is still a scrub, so nothing is lost. */
+const PTR=new Map();
+let pinch=null;
+
 function local(e){
   const b=cv.getBoundingClientRect();
   return {x:e.clientX-b.left,y:e.clientY-b.top};
@@ -273,23 +289,87 @@ function hit(p){
     const H=HIT[i];
     if(p.y<H.y||p.y>H.y+H.h)continue;
     if(p.x<H.x0-4||p.x>H.x1+4)continue;
-    const edge=Math.min(9,Math.max(4,(H.x1-H.x0)/4));
+    /* A thumb cannot aim at 9px. The handles grow on touch but never take more
+       than a third of the clip, or a short clip would be all handle and
+       impossible to move. */
+    const w=H.x1-H.x0;
+    const edge=compact()?Math.min(20,Math.max(6,w/3)):Math.min(9,Math.max(4,w/4));
     const mode=p.x<H.x0+edge?"l":p.x>H.x1-edge?"r":"move";
     return {H,mode};
   }
   return null;
 }
+const wrapEl=()=>cv.parentElement||null;
+
+function startPinch(){
+  const pts=[...PTR.values()];
+  if(pts.length<2)return;
+  const mid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2};
+  const w=wrapEl();
+  pinch={
+    d0:Math.max(1,Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y)),
+    zoom0:RT.zoom,
+    /* Anchor the time that was under the midpoint when the pinch began, so the
+       sequence grows around the fingers rather than around the left edge. */
+    tAnchor:xToT(mid.x),
+    mid0:mid,
+    top0:w?w.scrollTop:0
+  };
+}
+function movePinch(){
+  const pts=[...PTR.values()];
+  if(pts.length<2||!pinch)return;
+  const d=Math.max(1,Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y));
+  const mid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2};
+  RT.zoom=Math.max(4,Math.min(600,pinch.zoom0*(d/pinch.d0)));
+  RT.scroll=Math.max(0,pinch.tAnchor-(mid.x-GUT)/RT.zoom);
+  /* Two fingers moving together also scroll the lanes, which is the only way
+     to reach a lane below the fold when the canvas swallows every touch. */
+  const w=wrapEl();
+  if(w&&w.scrollHeight>w.clientHeight)w.scrollTop=pinch.top0-(mid.y-pinch.mid0.y);
+  drawTL();
+}
+/* A second finger arriving mid-gesture must not leave a half-finished edit
+   behind: an untouched scrub is rewound, an untouched clip drag is dropped. */
+function cancelDrag(){
+  if(!drag)return;
+  if(drag.kind==="scrub"&&drag.time0!=null){
+    RT.time=drag.time0;
+    hooks.onSeek&&hooks.onSeek(RT.time);
+  }else if(drag.clip&&!drag.moved){
+    /* selection is harmless and often what was wanted, so it stays */
+  }else if(drag.clip&&drag.moved){
+    drag.clip.t0=drag.t0;drag.clip.t1=drag.t1;drag.clip.track=drag.track;
+    hooks.onChange&&hooks.onChange(drag.clip);
+  }
+  drag=null;
+}
+
 function onDown(e){
   const p=local(e);
+  PTR.set(e.pointerId,p);
   cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);
+  if(PTR.size===2){cancelDrag();startPinch();drawTL();return;}
+  if(PTR.size>2)return;
+
   if(p.y<RULER||p.x<GUT){
-    if(p.x>=GUT){RT.time=Math.max(0,xToT(p.x));drag={kind:"scrub"};hooks.onSeek&&hooks.onSeek(RT.time);drawTL();}
+    if(p.x>=GUT){
+      drag={kind:"scrub",time0:RT.time};
+      RT.time=Math.max(0,xToT(p.x));
+      hooks.onSeek&&hooks.onSeek(RT.time);drawTL();
+    }
     return;
   }
   const h=hit(p);
   if(!h){
+    /* Empty lane. On a mouse that is a scrub; on a thumb it is a pan until it
+       turns out to have been a tap. */
+    if(e.pointerType==="touch"){
+      drag={kind:"pan",x0:p.x,scroll0:RT.scroll,t:xToT(p.x),moved:false};
+      return;
+    }
+    drag={kind:"scrub",time0:RT.time};   /* captured before the scrub moves it */
     RT.sel=null;RT.time=Math.max(0,xToT(p.x));
-    drag={kind:"scrub"};
     hooks.onSelect&&hooks.onSelect(null);hooks.onSeek&&hooks.onSeek(RT.time);
     drawTL();return;
   }
@@ -299,8 +379,11 @@ function onDown(e){
     t0:h.H.clip.t0,t1:h.H.clip.t1,track:h.H.clip.track,moved:false};
   drawTL();
 }
+
 function onMove(e){
   const p=local(e);
+  if(PTR.has(e.pointerId))PTR.set(e.pointerId,p);
+  if(pinch&&PTR.size>=2){movePinch();return;}
   if(!drag){
     const h=hit(p);
     const id=h?h.H.clip.id:null;
@@ -311,6 +394,13 @@ function onMove(e){
   if(drag.kind==="scrub"){
     RT.time=Math.max(0,xToT(p.x));
     hooks.onSeek&&hooks.onSeek(RT.time);drawTL();return;
+  }
+  if(drag.kind==="pan"){
+    const dx=p.x-drag.x0;
+    if(!drag.moved&&Math.abs(dx)<6)return;
+    drag.moved=true;
+    RT.scroll=Math.max(0,drag.scroll0-dx/RT.zoom);
+    drawTL();return;
   }
   const clip=drag.clip,dt=xToT(p.x)-drag.t,off=e.shiftKey;
   const len=drag.t1-drag.t0;
@@ -334,16 +424,32 @@ function onMove(e){
   hooks.onChange&&hooks.onChange(clip);
   drawTL();
 }
-function onUp(){
-  if(drag&&drag.kind!=="scrub"){
-    if(drag.moved)markDirty();
-    /* A press that never moved is someone asking to edit the clip, not to
-       retime it — on a phone that is the whole gesture for opening the
-       inspector, and it must not fire mid-drag. */
-    else hooks.onTap&&hooks.onTap(drag.clip);
+
+function onUp(e){
+  if(e&&e.pointerId!=null)PTR.delete(e.pointerId);
+  if(PTR.size<2)pinch=null;
+  if(PTR.size>0)return;      /* still mid-gesture with another finger down */
+  if(drag){
+    if(drag.kind==="pan"&&!drag.moved){
+      /* it was a tap after all */
+      RT.sel=null;RT.time=Math.max(0,drag.t);
+      hooks.onSelect&&hooks.onSelect(null);hooks.onSeek&&hooks.onSeek(RT.time);
+      drawTL();
+    }else if(drag.kind!=="scrub"&&drag.kind!=="pan"){
+      if(drag.moved)markDirty();
+      /* A press that never moved is someone asking to edit the clip, not to
+         retime it — on a phone that is the whole gesture for opening the
+         inspector, and it must not fire mid-drag. */
+      else hooks.onTap&&hooks.onTap(drag.clip);
+    }
   }
   drag=null;
   if(cv)cv.style.cursor="default";
+}
+function onCancel(e){
+  if(e&&e.pointerId!=null)PTR.delete(e.pointerId);
+  if(PTR.size<2)pinch=null;
+  if(!PTR.size){cancelDrag();drag=null;}
 }
 function onDbl(e){
   const h=hit(local(e));
