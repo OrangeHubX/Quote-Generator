@@ -403,6 +403,48 @@ so the whole frame stays visible while you adjust it rather than being edited
 blind. CSS cannot tell a canvas that its box changed, so `setSheet()` repaints
 at the start of the slide and again once it has settled.
 
+**Three input models, one canvas.** A mouse gets hover, edge cursors and
+ctrl+wheel zoom. A thumb gets none of those, so it gets gestures:
+
+| Gesture | Does |
+|---|---|
+| one finger on the ruler | scrub |
+| one finger on a clip | move it, or trim from either end |
+| one finger on empty lane | drag to pan; a tap that never moved scrubs |
+| two fingers | pinch to zoom, drag to pan, and scroll the lanes |
+
+The empty-lane case is the one that differs from the desktop, where an empty
+click just scrubs. On a touch screen there is no wheel and no scrollbar, so
+dragging the background has to be how you get around — and a press that never
+moves is still a scrub, so nothing is lost.
+
+A pinch anchors the time that was under the midpoint when it started, so the
+sequence grows around the fingers rather than around the left edge. A second
+finger arriving mid-gesture must not leave half an edit behind, so `cancelDrag()`
+rewinds an untouched scrub and drops an unfinished clip drag before the pinch
+takes over. Trim handles grow to 20px on touch but never take more than a third
+of a clip, or a short clip would be all handle and impossible to move.
+
+**Split, duplicate and delete are on screen, not just on the keyboard.** They
+were shortcuts only, which put the three things you do to a whole clip out of
+reach of the device this tool is most likely to be used on. They now sit
+directly under the clip's name in the inspector, where the clip is, rather than
+under the fields describing its contents. Split disables itself, with a reason
+in its tooltip, when the playhead is outside the clip.
+
+**A popup inside a scrolling ancestor is a clipped popup.** The tool bar got
+`overflow-x:auto` so it could never wrap and steal a row from the preview — and
+that made it a clipping context, which cut the Add menu off two pixels below its
+own button and made every item untappable. `placePop()` moves the menu to
+`<body>` before measuring it, the same fix and the same reason as the card
+page's own popups.
+
+**Dragging a file in is a desktop gesture.** It was the only prominent route to
+loading gameplay, and it does not exist on a phone. The Media tab now carries the
+same picker the tool bar uses, next to the list it fills, and the copy follows
+the device — `hover:none` rather than screen width, because a small window on a
+laptop still has a mouse and a file system to drag from.
+
 The timeline's own metrics follow the viewport rather than being fixed: a 70px
 label gutter and 30px lanes are right for a mouse and useless for a thumb. `GUT`
 is read by a dozen call sites, so it is refreshed once at the top of every draw
@@ -473,7 +515,11 @@ shorts-ep12.zip
 | `⌘Z` / `Ctrl+Z` | Undo (`Shift` to redo) |
 | `⌘⏎` / `Ctrl+⏎` | Export |
 
-Hold `Shift` while dragging a clip to ignore snapping.
+Hold `Shift` while dragging a clip to ignore snapping. Split, duplicate and
+delete are also buttons on the selected clip, so none of this is keyboard-only.
+
+On a touch screen: pinch the timeline to zoom, drag an empty lane to pan, tap a
+clip to edit it, and tap the tab you are already on to put the sheet back down.
 
 ### Quote Slate
 

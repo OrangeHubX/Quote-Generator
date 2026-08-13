@@ -67,16 +67,22 @@
         <div class="ihead">Loaded files</div>
         <div id="mediaList" class="mlist"></div>
         <div id="missing"></div>
+        <!-- The same input the tool bar uses. Dragging a file in is a desktop
+             gesture that does not exist on a phone, so the picker has to be
+             here too, next to the list it fills. -->
+        <label class="btn wide pickbtn" for="pick">Choose files</label>
+        <p class="ptext" id="mediaHow"></p>
       </div>
       <div class="igroup">
         <div class="ihead">How this works</div>
-        <p class="ptext">Drop a gameplay clip, the voiceover and any images anywhere on
-        this page. The gameplay fills the frame and is always muted — only the
+        <p class="ptext">The gameplay fills the frame and is always muted — only the
         voiceover is heard. Images are matched to the names in the shotlist, so
         <code>src=haaland</code> finds <code>haaland.jpg</code> whatever else is in
         the file name.</p>
         <p class="ptext">Select the <b>BG</b> clip to reposition the gameplay: zoom in and
-        move it when a particular part of the action should be on screen.</p>
+        move it when a particular part of the action should be on screen. Press
+        <b>Split</b> where the framing should change, and give each half its own
+        zoom and position.</p>
       </div>
       <div class="igroup">
         <div class="ihead">Start over</div>

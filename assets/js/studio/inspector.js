@@ -5,7 +5,8 @@
    the differences is far less code than writing ten near-identical panels —
    and a control added to the shared list cannot go missing from one type. */
 
-import {ANIM_IN, ANIM_OUT, RT, SEQ, SLOT_KEYS, findClip, markDirty} from './model.js';
+import {ANIM_IN, ANIM_OUT, RT, SEQ, SLOT_KEYS, duplicateClip, findClip, markDirty,
+        removeClip, splitClip} from './model.js';
 import {list} from './media.js';
 
 let host=null,onEdit=()=>{};
@@ -192,6 +193,37 @@ function contentFor(clip,g){
   }
 }
 
+/* Split, duplicate and delete used to live only on the keyboard, which put them
+   out of reach of the device this tool is most likely to be used on. They are
+   the same three operations either way — the shortcuts still work. */
+function clipActions(clip){
+  const row=el("div","iacts");
+  const inside=RT.time>clip.t0+1e-3&&RT.time<clip.t1-1e-3;
+  const split=el("button","btn sm","Split");
+  split.title=inside?"Cut this clip at the playhead (S)"
+    :"Move the playhead inside this clip to split it";
+  split.disabled=!inside;
+  split.addEventListener("click",()=>{
+    const b=splitClip(clip.id,RT.time);
+    if(!b)return;
+    RT.sel=b.id;markDirty();renderInspector();onEdit();
+  });
+  const dup=el("button","btn sm","Duplicate");
+  dup.title="Copy it to just after itself (⌘D)";
+  dup.addEventListener("click",()=>{
+    const b=duplicateClip(clip.id);
+    if(!b)return;
+    RT.sel=b.id;markDirty();renderInspector();onEdit();
+  });
+  const del=el("button","btn sm danger","Delete");
+  del.title="Remove this clip (Delete)";
+  del.addEventListener("click",()=>{
+    removeClip(clip.id);RT.sel=null;markDirty();renderInspector();onEdit();
+  });
+  row.appendChild(split);row.appendChild(dup);row.appendChild(del);
+  return row;
+}
+
 const VISUAL={text:1,stamp:1,list:1,lower:1,image:1,card:1};
 
 export function renderInspector(){
@@ -206,6 +238,7 @@ export function renderInspector(){
   head.appendChild(el("span","idur",fmt(clip.t0)+" → "+fmt(clip.t1)+
     "  ·  "+Math.round((clip.t1-clip.t0)*(SEQ.fps||30))+"f"));
   host.appendChild(head);
+  host.appendChild(clipActions(clip));
 
   const gc=group("Content");contentFor(clip,gc);host.appendChild(gc);
 
