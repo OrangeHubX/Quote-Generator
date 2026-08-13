@@ -287,3 +287,12 @@ body.dropping .dropveil{display:grid}
 /* A <label> acting as a button needs the alignment a real button gets free. */
 .pickbtn{display:flex;margin-top:8px}
 @media (max-width:900px){.pickbtn{height:40px;min-height:40px}}
+
+/* ---- cue notes ---- */
+.cue{display:block;width:100%;text-align:left;margin-bottom:5px;padding:8px 10px;
+  border:1px solid rgba(255,142,126,.28);background:rgba(255,142,126,.09);
+  color:var(--fg-2);border-radius:var(--r);cursor:pointer;font-size:11.5px;
+  line-height:1.45}
+.cue:hover{background:rgba(255,142,126,.16);color:var(--fg)}
+.cue:last-of-type{margin-bottom:2px}
+@media (max-width:900px){.cue{padding:11px 12px;font-size:12.5px}}

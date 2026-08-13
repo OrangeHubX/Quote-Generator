@@ -206,7 +206,7 @@ export function parseShotlist(text){
     if(key==="media"||key==="assets"||key==="files"){
       for(const pair of rest.split(/\s*[,;]\s*/)){
         const kv=pair.split(/\s*=\s*/);
-        if(kv.length===2&&kv[0])meta.media[kv[0].trim().toLowerCase()]=stripQ(kv[1]);
+        if(kv.length===2&&kv[0])meta.media[kv[0].trim().toLowerCase()]=unwrap(kv[1]);
       }
       continue;
     }
@@ -246,6 +246,17 @@ export function parseShotlist(text){
   return {meta,items,warnings:warn,source:"block"};
 }
 function defaultDur(type){return type==="say"?2.5:type==="lower"?4:3;}
+/* Media values arrive as placeholders more often than not — Claude writes
+   `[gta-bed]` or `<vo-file>` when it does not know what the file will be
+   called. The brackets are punctuation, not part of the name, and leaving them
+   in means the "waiting on" list asks for a file nobody would ever name. */
+function unwrap(s){
+  let t=stripQ(s);
+  while(t.length>1&&((t[0]==="["&&t.endsWith("]"))||(t[0]==="<"&&t.endsWith(">"))
+      ||(t[0]==="{"&&t.endsWith("}"))||(t[0]==="("&&t.endsWith(")"))))
+    t=t.slice(1,-1).trim();
+  return t;
+}
 function stripQ(s){
   const t=String(s||"").trim();
   if(t.length>1&&((t[0]==='"'&&t.endsWith('"'))||(t[0]==="'"&&t.endsWith("'"))))return t.slice(1,-1).trim();

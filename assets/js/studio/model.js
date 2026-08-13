@@ -191,7 +191,7 @@ export function importPaste(text,mediaHints){
   for(const it of p.items){
     const {t0,t1}=withTime(it);
     const o=it.opts||{};
-    const props=propsFromOpts(it.type,it.text,o);
+    const props=propsFromOpts(it.type,it.text,o,mediaHints||{});
     const track=it.type==="say"?"say":it.type==="beat"?"beat":it.type==="bg"?"bg"
       :freeVisTrack(t0,t1);
     addClip(it.type,track,t0,t1,props);
@@ -204,7 +204,18 @@ export function importPaste(text,mediaHints){
   return {...p,end};
 }
 const NUM=(v,d)=>{const n=parseFloat(v);return isFinite(n)?n:d;};
-function propsFromOpts(type,text,o){
+/* `MEDIA ig=rockstar-instagram.png` then `IMAGE … src=ig` is the whole point of
+   declaring the media up front, so the alias has to actually resolve — without
+   this the clip went looking for a file literally called "ig" and only found
+   the right one by accident, when the substring happened to appear inside a
+   longer name. An alias with no entry stays as written; it is still a fine
+   thing to match a dropped file against. */
+const viaAlias=(v,hints)=>{
+  const k=String(v||"").trim().toLowerCase();
+  return (k&&hints[k])?hints[k]:v;
+};
+function propsFromOpts(type,text,o,hints){
+  hints=hints||{};
   const p=defaultsFor(type);
   if(text)p.text=text;
   if(type==="list"){
@@ -223,7 +234,7 @@ function propsFromOpts(type,text,o){
   if(o.anim)p.anim=String(o.anim).toLowerCase();
   if(o.out)p.out=String(o.out).toLowerCase();
   if(o.color)p.color=o.color;
-  if(o.src)p.src=String(o.src).toLowerCase();
+  if(o.src)p.src=viaAlias(String(o.src).toLowerCase(),hints);
   if(o.label)p.label=o.label;
   if(o.sub)p.sub=o.sub;
   if(o.hl)p.hl=o.hl;
@@ -231,9 +242,94 @@ function propsFromOpts(type,text,o){
   if(o.dim!=null)p.dim=!/^(0|off|no|false)$/i.test(o.dim);
   if(o.frame!=null)p.frame=!/^(0|off|no|false)$/i.test(o.frame);
   if(o.design)p.card={design:o.design,name:o.name||"",handle:o.handle||"",text:text||o.quote||"",
-                      theme:o.theme||"dark",outlet:o.outlet||""};
+                      theme:o.theme||"dark",outlet:o.outlet||"",
+                      avatar:o.avatar?viaAlias(String(o.avatar).toLowerCase(),hints):""};
   if(type==="card"&&!p.card)p.card={design:"quote",text:text||"",theme:"dark",outlet:o.outlet||""};
   return p;
+}
+
+/* ---------- cue check ----------
+   A visual exists to show the viewer what is being said *while* it is being
+   said. Arriving after the words have finished is the single easiest mistake to
+   make when times are written by hand, and the hardest to notice while editing,
+   because scrubbing to a clip always shows it looking fine on its own.
+
+   So the sequence checks itself: for every visual, find the first spoken line
+   that names it, and say so when the picture turns up after that line is over.
+   Matching is deliberately loose at the stem — "@rockstargames" should match
+   "Rockstar" — and deliberately blind to short words, which match everything
+   and mean nothing. These are notes, not errors: a late reveal can be the
+   point. */
+const STOP={about:1,after:1,again:1,their:1,there:1,these:1,those:1,which:1,
+  while:1,would:1,could:1,should:1,because:1,really:1,thing:1,things:1,
+  going:1,never:1,every:1,other:1,another:1,still:1,right:1,being:1};
+function tokens(s){
+  return String(s||"").toLowerCase().replace(/[^a-z0-9 ]+/g," ").split(/\s+/)
+    .filter(w=>w.length>=5&&!STOP[w]);
+}
+function subjectOf(c){
+  const p=c.props;
+  if(c.type==="image")return p.label||p.src||"";
+  if(c.type==="list")return (p.items||[]).join(" ");
+  if(c.type==="card")return (p.card&&(p.card.text||p.card.name))||"";
+  if(c.type==="lower")return "";        /* a standing credit names nothing */
+  return p.text||"";
+}
+function mentions(says,subject){
+  const toks=tokens(subject);
+  if(!toks.length)return [];
+  return says.filter(s=>{
+    const words=tokens(s.props.text);
+    return toks.some(t=>words.some(w=>w===t||w.startsWith(t)||t.startsWith(w)));
+  });
+}
+/* Seconds between a clip and a line, zero if they overlap at all. */
+function gapTo(c,s){
+  if(c.t0>=s.t1)return c.t0-s.t1;
+  if(c.t1<=s.t0)return s.t0-c.t1;
+  return 0;
+}
+const at=t=>{const m=Math.floor(t/60),x=t-m*60;return m+":"+(x<10?"0":"")+x.toFixed(1);};
+export function cueNotes(){
+  const notes=[];
+  const says=SEQ.clips.filter(c=>c.type==="say"&&c.props.text).sort((a,b)=>a.t0-b.t0);
+  const vis=SEQ.clips.filter(c=>trackOf(c.track).kind==="vis").sort((a,b)=>a.t0-b.t0);
+
+  for(const c of vis){
+    const len=c.t1-c.t0;
+    /* The test is overlap, not order. A word can appear in passing long before
+       the line that actually cues the picture — "six streamers" at 0:04 is not
+       what puts NOT JUST STREAMERS on screen at 0:13, "not just streamers" at
+       0:14 is. So a visual is on cue if it is up while *any* line names it, and
+       only the ones that never coincide with their own subject get flagged. */
+    const said=mentions(says,subjectOf(c));
+    if(said.length){
+      let near=said[0],gap=gapTo(c,near);
+      for(const s of said){const g=gapTo(c,s);if(g<gap){gap=g;near=s;}}
+      if(gap>0.05)
+        notes.push({id:c.id,t:Math.max(0,near.t0-0.3),
+          msg:c.type+" is never on screen while it is being talked about — the "+
+              "nearest line naming it is "+gap.toFixed(1)+"s away, at "+at(near.t0)});
+    }
+    if(len<0.8)
+      notes.push({id:c.id,t:c.t0,
+        msg:c.type+" is only "+len.toFixed(1)+"s long — too quick to read"});
+    if(c.type==="list"){
+      const need=(c.props.items||[]).length*(c.props.step||0.55);
+      if(need>len+0.05)
+        notes.push({id:c.id,t:c.t0,
+          msg:"the last names never appear — the build takes "+need.toFixed(1)+
+              "s but the clip is "+len.toFixed(1)+"s"});
+    }
+  }
+  /* Holes in the read. A short breath is deliberate; five seconds is a mistake
+     nobody sees until the voiceover is laid against it. */
+  for(let i=1;i<says.length;i++){
+    const gap=says[i].t0-says[i-1].t1;
+    if(gap>1.2)notes.push({id:null,t:says[i-1].t1,
+      msg:gap.toFixed(1)+"s of no voice at "+at(says[i-1].t1)});
+  }
+  return notes;
 }
 
 /* ---------- persistence + undo ---------- */

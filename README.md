@@ -457,6 +457,32 @@ back the moment a clip lands on one.
 editor's keyboard handling and pulls its whole UI in behind it, and all the
 studio needs is the height.
 
+**The sequence checks its own cues.** A visual exists to show the viewer what is
+being said *while* it is being said, and arriving after the words have finished
+is the easiest mistake to make when times are written by hand — and the hardest
+to notice while editing, because scrubbing to a clip always shows it looking
+fine on its own. `cueNotes()` finds, for every visual, the spoken lines that
+name it, and flags the ones that are never on screen while any of them is being
+read. It also catches a visual too short to read, a LIST whose build is longer
+than its own clip (the last names never appear), and holes in the read.
+
+The test is *overlap*, not order. Matching on the first mention flagged
+"NOT JUST STREAMERS" at 0:13 against "six streamers" at 0:04, when the line that
+actually cues it is "and it's not just streamers" at 0:14. A visual is on cue if
+it is up while *any* line names it. Matching is loose at the stem, so
+`@rockstargames` finds "Rockstar", and blind to words under five letters, which
+match everything and mean nothing. The notes are suggestions, not errors — a
+late reveal can be the point — and each one is a button that jumps to the moment
+it is talking about.
+
+**`MEDIA` aliases have to resolve.** Declaring `MEDIA ig=rockstar-instagram.png`
+and then writing `IMAGE … src=ig` is the entire reason the directive exists, but
+the alias was never applied: the clip went looking for a file called "ig" and
+only found the right one by accident, when the substring happened to appear
+inside a longer name. Values are also unwrapped from `[…]` and `<…>`, because a
+script written before the footage exists names its media with placeholders, and
+the brackets are punctuation rather than part of the file name.
+
 **Timing is seconds, not frames.** A sequence outlives the frame rate it was
 pasted at, so clip times are seconds everywhere and only become frames at the
 edges — the ruler and the encoder. Animation *lengths* are the exception and are

@@ -77,12 +77,52 @@ TEXT  0:03-0:08 | <on-screen words> | slot=upper | anim=rise | blur=on
 - SAY lines carry the real read. Time them from the word count at the pace the
   Count section assumes — roughly 3 words a second at fast anchor pace — and
   make the last SAY line end at the total in that section.
+- **SAY lines must be continuous.** The next line starts when the last one ends.
+  Never leave more than about half a second between them: a gap is dead air in
+  the finished video, and it is invisible until the voiceover is laid against it.
 - Every row of the Visual beats table gets at least one element line, using the
   same times as the table.
 - Anything with words to read (TEXT, LIST, CARD, a captioned IMAGE) gets
   `blur=on`. A LOWER third that runs the whole video gets `blur=off dim=off`,
   or the gameplay is blurred for thirty seconds.
 - Overlapping elements are fine and stack automatically.
+
+## The rule that matters most: show it *as* I say it
+
+A visual exists so the viewer can see what I am talking about **while I am
+talking about it**. It is not an illustration of a thought I have already
+finished.
+
+So for anything that has a subject — a person, a company, a screenshot, a post,
+a place — work out the SAY line that names it, and:
+
+- **Start the element about 0.3s before that line starts.** The picture should
+  already be there when the word lands, not arrive chasing it.
+- **Keep it up until that thought is finished** — usually the end of that SAY
+  line, often a beat past it. Two to four seconds is normal. Under a second is
+  never enough to read a name and look at a face.
+- If several things are named in one line, either overlap them or use a LIST.
+
+Concretely, if the read is:
+
+```
+SAY 0:00-0:02.3 | Rockstar just followed six people on Instagram.
+```
+
+then the Instagram screenshot belongs at `0:00-0:02.6`, not somewhere later:
+
+```
+IMAGE 0:00-0:02.6 | src=ig | label=@rockstargames | slot=center | blur=on
+```
+
+**A LIST has to be timed the same way.** Set `step` so each item lands as its
+name is spoken, and make the clip long enough for the whole build —
+`items x step` must fit inside the clip's length, or the last names never
+appear on screen at all. If the six names are read across 3.6 seconds, that is
+`step=0.6` and a clip at least 3.6s long.
+
+The studio checks all of this on import and lists anything that looks late,
+too short, or cut off, so getting it right here saves me the fixing.
 
 ## Worked example
 
@@ -102,6 +142,7 @@ SAY   0:16-0:21 | Erling Haaland got a follow, and so did Danny Dyer, the voice 
 SAY   0:21-0:25 | Rockstar hasn't said a damn thing.
 SAY   0:25-0:29 | Because apparently, silence IS the announcement.
 
+# each visual starts a beat before the words that name it, and holds through them
 LOWER 0:00-0:29 | GTA BOOM · Notebookcheck | slot=bottom | blur=off | dim=off
 TEXT  0:00-0:03 | Rockstar's Instagram | slot=upper | anim=fade | blur=on
 LIST  0:03-0:09 | slot=center | step=0.6 | blur=on
@@ -109,7 +150,7 @@ LIST  0:03-0:09 | slot=center | step=0.6 | blur=on
 TEXT  0:08-0:09.5 | days before the GTA 6 Netflix reveal | slot=lower | hl=Netflix | blur=on
 STAMP 0:09-0:13 | REPORTEDLY | slot=center | anim=slam
 TEXT  0:13-0:16 | NOT JUST STREAMERS | slot=upper | anim=wipe | blur=on
-IMAGE 0:16-0:19 | src=haaland | label=Erling Haaland | slot=right | blur=on
-IMAGE 0:19-0:21 | src=dyer | label=Danny Dyer — Kent Paul | slot=left | blur=on
+IMAGE 0:15.7-0:19 | src=haaland | label=Erling Haaland | slot=right | blur=on
+IMAGE 0:18.7-0:21 | src=dyer | label=Danny Dyer — Kent Paul | slot=left | blur=on
 TEXT  0:25-0:29 | silence IS the announcement | slot=center | hl=silence | anim=rise | blur=on
 ```

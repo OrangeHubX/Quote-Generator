@@ -5,8 +5,8 @@
    the differences is far less code than writing ten near-identical panels —
    and a control added to the shared list cannot go missing from one type. */
 
-import {ANIM_IN, ANIM_OUT, RT, SEQ, SLOT_KEYS, duplicateClip, findClip, markDirty,
-        removeClip, splitClip} from './model.js';
+import {ANIM_IN, ANIM_OUT, RT, SEQ, SLOT_KEYS, cueNotes, duplicateClip, findClip,
+        markDirty, removeClip, splitClip} from './model.js';
 import {list} from './media.js';
 
 let host=null,onEdit=()=>{};
@@ -300,6 +300,23 @@ function sequencePanel(){
     [["bold","Bold"],["upper","UPPERCASE"],["small","Small"]])));
   c3.appendChild(row("Safe zones",fTog(()=>SEQ.safe,v=>{SEQ.safe=v;},"Preview only, never exported")));
   wrap.appendChild(c3);
+
+  const notes=cueNotes();
+  if(notes.length){
+    const g4=group("Worth a look");
+    for(const n of notes){
+      const b=el("button","cue",n.msg);
+      b.addEventListener("click",()=>{
+        RT.time=n.t;
+        if(n.id)RT.sel=n.id;
+        renderInspector();onEdit();
+      });
+      g4.appendChild(b);
+    }
+    g4.appendChild(el("p","ptext",
+      "Suggestions, not errors — a late reveal can be the point. Tap one to jump there."));
+    wrap.appendChild(g4);
+  }
 
   const note=el("div","inote",
     "Nothing selected. Click a clip to edit it, or drag one on the timeline to retime it.");
