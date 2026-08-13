@@ -129,10 +129,12 @@
       </div>
       <div class="igroup">
         <div class="ihead">Claude</div>
-        <button class="btn wide" id="spec">Copy the format spec</button>
-        <p class="ptext">Paste it into your project knowledge. Claude then ends every
-        script with a <code>shotlist</code> block that lands on this timeline in
-        one paste.</p>
+        <button class="btn wide" id="spec">The format spec</button>
+        <p class="ptext">Put it in your project knowledge and Claude ends every script
+        with a <code>shotlist</code> block that lands on this timeline in one paste.
+        Copy it, share it straight into another app, or save it as a
+        <code>.md</code> — and the text is selectable either way, so a long-press
+        works when nothing else does.</p>
       </div>
     </div>
   </section>
@@ -148,6 +150,23 @@
     <div class="sheetf">
       <button class="btn" id="pasteCancel">Cancel</button>
       <button class="btn accent" id="pasteGo">Build the timeline</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── the format spec ──────────────────────────────────────────────────────
+     Its own sheet, not the import one. The spec used to be dumped into the
+     paste box, whose primary button says "Build the timeline" — one tap from
+     replacing the sequence with the instruction manual. -->
+<div class="modal" id="specWrap">
+  <div class="sheet">
+    <div class="sheeth">The format spec — put this in your Claude project knowledge</div>
+    <textarea id="specBox" readonly spellcheck="false"></textarea>
+    <div class="sheetf">
+      <button class="btn" id="specClose">Close</button>
+      <button class="btn hide" id="specShare">Share</button>
+      <button class="btn" id="specSave">Save .md</button>
+      <button class="btn accent" id="specCopy">Copy</button>
     </div>
   </div>
 </div>
