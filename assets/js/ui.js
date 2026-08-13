@@ -9,6 +9,7 @@ import {animated, setFrame, step, toggle as togglePlay} from './timeline.js';
 import {snack} from './export.js';
 import {buildShowChips, syncBezBtn, syncTwitch} from './panels.js';
 import {redo, undo} from './history.js';
+import {registerSink} from './paste.js';
 
 /* ---------- tap to highlight ---------- */
 export function syncWords(){
@@ -288,9 +289,13 @@ function bindImage(fileId,dropId,thumbId,nameId,clearId,key){
     nm.textContent=PLACEHOLDER_TEXT[key];clr.classList.add("hide");
     applyRelevance();invalidateLayout();scheduleDraw();
   }
+  /* the paste dialog hands its file to exactly this decoder, so every route in
+     produces the same result */
+  registerSink(key,accept);
   file.addEventListener("change",e=>accept(e.target.files&&e.target.files[0]));
   drop.addEventListener("click",e=>{
-    if(e.target.closest("#"+clearId))return;   /* the ✕ handles itself */
+    /* the ✕ and the paste button each handle themselves */
+    if(e.target.closest("#"+clearId)||e.target.closest(".pst"))return;
     file.click();
   });
   drop.addEventListener("keydown",e=>{

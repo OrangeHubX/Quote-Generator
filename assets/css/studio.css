@@ -130,10 +130,17 @@ select.ifield{cursor:pointer}
 .xbar i{display:block;height:100%;width:0;background:var(--acc);transition:width .18s linear}
 .xstat{font-family:var(--mono);font-size:10.5px;color:var(--fg-2);min-height:14px}
 
-/* ---- paste sheet ---- */
+/* ---- paste sheet ----
+   The card page's own paste dialog is toggled by the `hidden` attribute, so
+   app.css animates `.modal:not([hidden])`. This sheet is toggled by a class and
+   is never `hidden`, which means that rule matches from the moment the page
+   loads: the entrance would play once against a `display:none` element and
+   never again. Re-point it at `.on`. The keyframes themselves are app.css's and
+   are global, so there is nothing to redefine. */
 .modal{position:fixed;inset:0;z-index:80;display:none;place-items:center;
-  background:rgba(6,7,10,.72);padding:20px}
-.modal.on{display:grid}
+  background:rgba(6,7,10,.72);padding:20px;animation:none}
+.modal.on{display:grid;animation:mdlIn .14s ease both}
+.modal.on .sheet{animation:mdlCard .2s cubic-bezier(.22,1,.36,1) both}
 .sheet{width:min(760px,100%);max-height:82vh;display:flex;flex-direction:column;
   background:var(--panel);border:1px solid var(--line-2);border-radius:12px;
   box-shadow:0 30px 80px rgba(0,0,0,.7);overflow:hidden}
