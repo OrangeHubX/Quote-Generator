@@ -7,6 +7,7 @@
 .studio{display:grid;grid-template-columns:1fr var(--side-w,392px);
   height:100dvh;height:var(--vh,100dvh);overflow:hidden;background:var(--bg)}
 @media (max-width:1100px){:root{--side-w:330px}}
+:root{--peek:46px}   /* the tab row, left showing when the sheet is down */
 
 /* ---- left column ---- */
 .stage2{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;
@@ -163,3 +164,98 @@ select.ifield{cursor:pointer}
   background:rgba(11,12,15,.82);color:var(--acc);font-size:17px;font-weight:600;
   border:3px dashed var(--acc);border-radius:14px;pointer-events:none}
 body.dropping .dropveil{display:grid}
+
+/* ============ phone ============
+   The desktop shell is a viewer beside an inspector. That column split is what
+   makes a phone unusable: at 412px the 330px inspector left 82px for the
+   editor and the preview came out 50px wide. So on a phone the inspector stops
+   being a column and becomes a bottom sheet, and the editor gets the whole
+   width back.
+
+   The sheet is never fully gone — it rests with its tab row showing, which is
+   both the handle and the thing you were going to reach for anyway. Tapping the
+   active tab puts it back down. Nothing here is hidden behind a gesture you
+   have to know about. */
+@media (max-width:900px){
+  .studio{display:flex;flex-direction:column;
+    /* --vh tracks the *visual* viewport, so the shell covers exactly what is
+       visible whether or not the keyboard shrinks the layout viewport */
+    height:var(--vh,100dvh);max-height:var(--vh,100dvh);
+    padding-bottom:var(--peek)}
+
+  .stage2{flex:1;min-height:0;padding:8px 8px 0;gap:8px}
+  /* A safety valve rather than a wrap: a wrapped tool bar steals a whole row
+     from the preview on every phone, to help the narrowest one. */
+  .tbar{overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .tbar::-webkit-scrollbar{display:none}
+  .tbar>*{flex:none}
+  #tcRead{font-size:10px;padding:4px 6px}
+  .wide-only{display:none}        /* "Paste script" is just "Paste" here */
+  /* Enough for every lane the sequence is actually using, so the stack does
+     not need scrolling on top of everything else it needs. */
+  .tlwrap{max-height:40vh;padding:6px 6px 7px}
+  .hintbar{display:none}          /* no hover, no keyboard, no point */
+
+  /* One number drives the sheet and everything that has to get out of its way. */
+  .studio{--sheet-h:min(64vh,calc(var(--vh,100vh) - 190px))}
+  .side{position:fixed;left:0;right:0;bottom:0;z-index:60;
+    height:var(--sheet-h);
+    border-left:0;border-top:1px solid var(--line-2);
+    border-radius:14px 14px 0 0;
+    box-shadow:0 -18px 50px rgba(0,0,0,.55);
+    transform:translateY(calc(100% - var(--peek)));
+    transition:transform .24s cubic-bezier(.22,1,.36,1)}
+  body[data-sheet=open] .side{transform:translateY(0)}
+  /* With the sheet up, the stage gives back exactly the height the sheet took
+     and the preview refits into what is left — so you can still see the frame
+     you are adjusting instead of editing it blind. The timeline goes: it is
+     fully behind the sheet anyway, and keeping it would only squeeze the
+     preview it is hiding. */
+  body[data-sheet=open] .stage2{max-height:calc(var(--vh,100vh) - var(--sheet-h))}
+  body[data-sheet=open] .tlwrap{display:none}
+  /* No transition before the first paint, or the sheet slides up from nowhere
+     on load. app.js removes this once it has settled. */
+  body[data-sheet=init] .side{transition:none}
+
+  .tabs{height:var(--peek);padding:0 8px;align-items:stretch;
+    border-bottom:1px solid var(--line);background:var(--sub-panel);
+    border-radius:14px 14px 0 0}
+  .tabs button{height:100%;border-radius:0;font-size:12.5px}
+  .tabs button[aria-pressed=true]{background:transparent;
+    box-shadow:inset 0 -2px 0 var(--acc)}
+  .tablink{height:100%}
+  /* A grab handle above the tabs, so the sheet reads as a sheet */
+  .side::before{content:"";position:absolute;top:5px;left:50%;width:34px;height:3px;
+    margin-left:-17px;border-radius:3px;background:var(--line-2);pointer-events:none}
+  .tabs{padding-top:8px}
+
+  .pane{padding:10px 10px 28px;-webkit-overflow-scrolling:touch}
+  /* Two thin columns of controls do not fit a phone; give the label its own line
+     and let every field use the full width. */
+  .irow{grid-template-columns:1fr;gap:4px;margin-bottom:10px}
+  .ilab{font-size:12px;color:var(--fg-2)}
+  .ihint{display:none}
+  .ifield,.itog{height:36px}
+  .irange input[type=range]{height:34px}
+  .icolor input[type=color]{height:36px;width:52px}
+  .btn,.fab{min-height:34px}
+  .fab{width:34px}
+  .btn.sm,.fab.sm{height:30px;min-height:30px}
+  .fab.sm{width:30px}
+
+  /* The paste sheet has to survive the keyboard being up. */
+  .modal{padding:10px;align-items:start;padding-top:8vh}
+  .sheet{max-height:76vh}
+  #pasteBox{min-height:150px;font-size:12px}
+  .sheeth{font-size:12px;padding:10px 12px}
+
+  #snack{bottom:calc(var(--peek) + 14px)}
+  .dropveil{font-size:15px}
+}
+
+/* Landscape on a phone is short, not narrow: keep the sheet but give the
+   timeline less of the height it does not have. */
+@media (max-width:900px) and (orientation:landscape){
+  .tlwrap{max-height:44vh}
+  .side{height:min(88vh,calc(var(--vh,100vh) - 76px))}
+}

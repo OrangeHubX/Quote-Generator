@@ -21,6 +21,50 @@ const $=s=>document.querySelector(s);
 const pv=$("#pv"),pctx=pv.getContext("2d",{alpha:false});
 const mediaHints={};
 let seekToken=0;
+const phone=()=>window.innerWidth<=900;
+
+/* ---------- viewport ----------
+   The same --vh trick the card page uses, rewritten here rather than imported:
+   state.js owns the card editor's keyboard handling and pulls its whole UI in
+   behind it. All the studio needs is the height. Static vh is not enough — on a
+   phone it counts the area behind the browser chrome and the keyboard, so the
+   timeline ends up under both. */
+function syncVH(){
+  const vv=window.visualViewport;
+  const root=document.documentElement;
+  const h=Math.round(vv?vv.height:window.innerHeight);
+  if(root.style.getPropertyValue("--vh")!==h+"px")root.style.setProperty("--vh",h+"px");
+  drawPreview();drawTL();
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize",syncVH);
+  window.visualViewport.addEventListener("scroll",syncVH);
+}
+window.addEventListener("orientationchange",()=>setTimeout(syncVH,200));
+
+/* ---------- the mobile sheet ----------
+   On a phone the inspector is a bottom sheet resting at its tab row. The tab
+   row is the handle: tapping a tab raises the sheet on it, tapping the tab
+   already showing puts it back down. On a desktop the tabs are just tabs. */
+function sheetOpen(){return document.body.dataset.sheet==="open";}
+function setSheet(open){
+  if(sheetOpen()===open)return;
+  document.body.dataset.sheet=open?"open":"shut";
+  /* The stage resizes with the sheet, and CSS will not tell the canvas about
+     it. Repaint now for the start of the slide and again once it has settled. */
+  drawPreview();
+  clearTimeout(setSheet._t);
+  setSheet._t=setTimeout(()=>{drawPreview();drawTL();},280);
+}
+export function showTab(name,openIt){
+  for(const b of document.querySelectorAll("#tabs button"))
+    b.setAttribute("aria-pressed",String(b.dataset.tab===name));
+  for(const p of document.querySelectorAll(".pane"))
+    p.classList.toggle("hide",p.dataset.pane!==name);
+  if(name==="media")refreshMediaList();
+  if(name==="export")syncRate();
+  if(openIt&&phone())setSheet(true);
+}
 
 /* ---------- preview ---------- */
 function previewSize(){
@@ -42,7 +86,10 @@ export function drawPreview(){
   const H=Math.round(W*SEQ.h/SEQ.w);
   if(pv.width!==W||pv.height!==H){pv.width=W;pv.height=H;}
   renderFrame(pctx,W,H,RT.time,{preview:true});
-  $("#tcRead").textContent=tcFrames(RT.time)+" / "+tcFrames(seqDur());
+  /* The total costs half the bar's width and the ruler already shows where the
+     sequence ends, so a phone gets the playhead alone. */
+  $("#tcRead").textContent=phone()?tcFrames(RT.time)
+    :tcFrames(RT.time)+" / "+tcFrames(seqDur());
 }
 /* Scrubbing needs the plate parked on the right frame, and parking is async.
    Draw immediately so the overlay follows the pointer, then draw again once
@@ -123,7 +170,8 @@ pv.addEventListener("pointerdown",e=>{
   const clip=clipAtPoint(x,y,RT.time);
   if(!clip){RT.sel=null;renderInspector();drawTL();return;}
   RT.sel=clip.id;renderInspector();drawTL();
-  pdrag={clip,x:e.clientX,y:e.clientY,x0:clip.props.x||0,y0:clip.props.y||0,w:b.width,h:b.height};
+  pdrag={clip,x:e.clientX,y:e.clientY,x0:clip.props.x||0,y0:clip.props.y||0,
+         w:b.width,h:b.height,moved:false};
   pv.setPointerCapture&&pv.setPointerCapture(e.pointerId);
 });
 pv.addEventListener("pointermove",e=>{
@@ -133,12 +181,20 @@ pv.addEventListener("pointermove",e=>{
     pv.style.cursor=clipAtPoint(x,y,RT.time)?"move":"default";
     return;
   }
-  pdrag.clip.props.x=pdrag.x0+(e.clientX-pdrag.x)/pdrag.w*100;
-  pdrag.clip.props.y=pdrag.y0+(e.clientY-pdrag.y)/pdrag.h*100;
+  const dx=e.clientX-pdrag.x,dy=e.clientY-pdrag.y;
+  /* A few pixels of travel is a tap with a shaky thumb, not a reposition. */
+  if(!pdrag.moved&&Math.abs(dx)+Math.abs(dy)<6)return;
+  pdrag.moved=true;
+  pdrag.clip.props.x=pdrag.x0+dx/pdrag.w*100;
+  pdrag.clip.props.y=pdrag.y0+dy/pdrag.h*100;
   drawPreview();
 });
 window.addEventListener("pointerup",()=>{
-  if(pdrag){markDirty();renderInspector();pdrag=null;}
+  if(!pdrag)return;
+  if(pdrag.moved)markDirty();
+  else if(phone())showTab("inspect",true);
+  renderInspector();
+  pdrag=null;
 });
 
 /* ---------- media ---------- */
@@ -413,7 +469,19 @@ function boot(){
     onSeek:t=>{RT.time=t;if(RT.playing){seqT0=t;wallT0=performance.now();playAudio(audioTracks(),t);}refresh();},
     onSelect:()=>renderInspector(),
     onChange:()=>{drawPreview();},
-    onOpen:()=>$(".insp").scrollTo({top:0,behavior:"smooth"})
+    /* Tapping a clip without dragging it means "edit this". On a phone that is
+       the gesture that brings the inspector up; on a desktop the panel is
+       already there and only needs scrolling back to the top. */
+    onTap:()=>{
+      renderInspector();
+      if(phone())showTab("inspect",true);
+      else $(".insp").scrollTo({top:0,behavior:"smooth"});
+    },
+    onOpen:()=>{
+      renderInspector();
+      if(phone())showTab("inspect",true);
+      else $(".insp").scrollTo({top:0,behavior:"smooth"});
+    }
   });
   initInspector($("#insp"),()=>{drawPreview();drawTL();});
   buildAdd();
@@ -422,15 +490,18 @@ function boot(){
   $("#fit").addEventListener("click",zoomFit);
   $("#zin").addEventListener("click",()=>zoomBy(1.3));
   $("#zout").addEventListener("click",()=>zoomBy(1/1.3));
-  const tabs=[...document.querySelectorAll("#tabs button")];
-  for(const b of tabs)b.addEventListener("click",()=>{
-    for(const x of tabs)x.setAttribute("aria-pressed",String(x===b));
-    for(const p of document.querySelectorAll(".pane"))
-      p.classList.toggle("hide",p.dataset.pane!==b.dataset.tab);
-    if(b.dataset.tab==="media")refreshMediaList();
-    if(b.dataset.tab==="export")syncRate();
+  for(const b of document.querySelectorAll("#tabs button"))b.addEventListener("click",()=>{
+    const active=b.getAttribute("aria-pressed")==="true";
+    /* On a phone the tab you are already on is the way back down. */
+    if(phone()&&active&&sheetOpen()){setSheet(false);return;}
+    showTab(b.dataset.tab,true);
   });
-  window.addEventListener("resize",()=>{drawPreview();drawTL();});
+  window.addEventListener("resize",()=>{syncVH();drawPreview();drawTL();});
+  /* Park the sheet before the first paint and only then allow it to animate,
+     or it slides up from nowhere on load. */
+  document.body.dataset.sheet="init";
+  requestAnimationFrame(()=>{document.body.dataset.sheet="shut";});
+  syncVH();
   syncExportToSeq();refreshMediaList();renderInspector();zoomFit();repaint();
   /* Console handle, the same bargain the card page makes with window.QS:
      enough to inspect and drive the thing without opening a debugger. */

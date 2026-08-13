@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- interactive-widget=resizes-content makes the on-screen keyboard shrink the
+     layout viewport, so a fixed bottom sheet sits above the keyboard rather
+     than behind it. maximum-scale stops the double-tap zoom that would
+     otherwise fight the timeline's own gestures. -->
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,interactive-widget=resizes-content">
 <meta name="theme-color" content="#0B0C0F">
 <title>Palm Static Studio</title>
 <link rel="stylesheet" href="assets/css/app.css">
@@ -20,7 +24,7 @@
         <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></button>
       <span class="badge" id="tcRead">0:00:00</span>
       <span class="sp"></span>
-      <button class="btn accent" id="paste" title="Paste a Claude shotlist or script">Paste script</button>
+      <button class="btn accent" id="paste" title="Paste a Claude shotlist or script">Paste<span class="wide-only"> script</span></button>
       <div class="popwrap">
         <button class="btn" id="add" title="Add an element at the playhead">Add ▾</button>
         <div class="pop" id="addPop"></div>

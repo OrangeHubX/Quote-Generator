@@ -12,7 +12,14 @@
 import {RT, SEQ, TRACKS, markDirty, removeClip, seqDur} from './model.js';
 import {get} from './media.js';
 
-const GUT=70, RULER=24, GAP=3;
+/* Metrics change with the viewport rather than being fixed: a 70px label
+   gutter and 30px lanes are right for a mouse and useless for a thumb. GUT is
+   a variable read by a dozen call sites, so it is refreshed in one place at the
+   top of every draw instead of being threaded through all of them. */
+const compact=()=>window.innerWidth<=900;
+let GUT=70;
+const RULER=24, GAP=3;
+function syncMetrics(){GUT=compact()?52:70;}
 /* Canvas font strings are not CSS: `var(--ui)` never resolves and the
    context silently keeps whatever font it had. Spell the stacks out. */
 const UI=(w,s)=>w+" "+s+'px -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,system-ui,sans-serif';
@@ -39,6 +46,7 @@ let cv=null,c=null,hooks={},HIT=[],drag=null,hover=null;
 
 export function initTimeline(canvas,h){
   cv=canvas;c=cv.getContext("2d");hooks=h||{};
+  syncMetrics();
   cv.addEventListener("pointerdown",onDown);
   cv.addEventListener("pointermove",onMove);
   window.addEventListener("pointerup",onUp);
@@ -51,13 +59,28 @@ export function initTimeline(canvas,h){
 /* ---------- geometry ---------- */
 export const tToX=t=>GUT+(t-RT.scroll)*RT.zoom;
 export const xToT=x=>(x-GUT)/RT.zoom+RT.scroll;
+/* On a phone the optional lanes are hidden while they are empty. Nine lanes at
+   thumb size is most of the screen, and four of them are usually unused — but
+   they come back the moment something lands on them, so nothing is unreachable
+   and nothing silently disappears. */
+const OPTIONAL={v3:1,v4:1,a2:1,beat:1};
+function lanes(){
+  if(!compact())return TRACKS;
+  return TRACKS.filter(t=>!OPTIONAL[t.id]||SEQ.clips.some(c=>c.track===t.id));
+}
 function rows(){
+  const k=compact()?1.25:1;
   const out=[];let y=RULER+GAP;
-  for(const t of TRACKS){out.push({...t,y,bot:y+t.h});y+=t.h+GAP;}
+  for(const t of lanes()){
+    const h=Math.round(t.h*k);
+    out.push({...t,h,y,bot:y+h});
+    y+=h+GAP;
+  }
   return out;
 }
 export function tlHeight(){
-  return RULER+GAP+TRACKS.reduce((a,t)=>a+t.h+GAP,0)+4;
+  const r=rows();
+  return (r.length?r[r.length-1].bot:RULER+GAP)+4;
 }
 function rowAt(y){
   for(const r of rows())if(y>=r.y-GAP/2&&y<=r.bot+GAP/2)return r;
@@ -67,6 +90,7 @@ function rowAt(y){
 /* ---------- draw ---------- */
 export function drawTL(){
   if(!cv)return;
+  syncMetrics();
   const box=cv.getBoundingClientRect();
   const dpr=Math.min(window.devicePixelRatio||1,2);
   const w=Math.max(200,Math.round(box.width)),h=Math.round(tlHeight());
@@ -311,7 +335,13 @@ function onMove(e){
   drawTL();
 }
 function onUp(){
-  if(drag&&drag.kind!=="scrub"&&drag.moved)markDirty();
+  if(drag&&drag.kind!=="scrub"){
+    if(drag.moved)markDirty();
+    /* A press that never moved is someone asking to edit the clip, not to
+       retime it — on a phone that is the whole gesture for opening the
+       inspector, and it must not fire mid-drag. */
+    else hooks.onTap&&hooks.onTap(drag.clip);
+  }
   drag=null;
   if(cv)cv.style.cursor="default";
 }

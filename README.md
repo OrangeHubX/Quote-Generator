@@ -383,6 +383,38 @@ offsets — about twelve minutes at the 4K rate.
 "max recommended" means; going past it does not survive the re-encode, it only
 makes the upload slower.
 
+**On a phone the inspector stops being a column.** The desktop shell is a viewer
+beside a 330–392px inspector, and that split is exactly what made a phone
+unusable: at 412px the inspector left 82px for the editor and the preview came
+out 50px wide. Below 900px the inspector becomes a bottom sheet instead, and the
+editor gets the full width back.
+
+The sheet never fully leaves — it rests with its tab row showing, which is both
+the handle and the thing you were reaching for anyway. Tapping a tab raises it on
+that tab; tapping the tab already showing puts it down. Tapping a clip raises it
+too, because a press that never moved is a request to edit rather than to retime
+— which is why `onTap` fires from `onUp` only when `moved` is false, and why the
+preview ignores the first few pixels of travel before it starts repositioning
+anything.
+
+Raising the sheet shrinks the stage by exactly the sheet's height and hides the
+timeline, which is behind the sheet regardless. One `--sheet-h` drives all three,
+so the whole frame stays visible while you adjust it rather than being edited
+blind. CSS cannot tell a canvas that its box changed, so `setSheet()` repaints
+at the start of the slide and again once it has settled.
+
+The timeline's own metrics follow the viewport rather than being fixed: a 70px
+label gutter and 30px lanes are right for a mouse and useless for a thumb. `GUT`
+is read by a dozen call sites, so it is refreshed once at the top of every draw
+instead of being threaded through all of them. The optional lanes — V3, V4,
+Music, Beats — are hidden on a phone while they are empty, because nine lanes at
+thumb size is most of the screen and four of them are usually unused. They come
+back the moment a clip lands on one.
+
+`--vh` tracking is duplicated here rather than imported: `state.js` owns the card
+editor's keyboard handling and pulls its whole UI in behind it, and all the
+studio needs is the height.
+
 **Timing is seconds, not frames.** A sequence outlives the frame rate it was
 pasted at, so clip times are seconds everywhere and only become frames at the
 edges — the ruler and the encoder. Animation *lengths* are the exception and are
